@@ -118,6 +118,14 @@
             return formatISTDate({ timestamp: Date.now() });
         };
 
+        const getUserStorageKey = (userObjOrId) => {
+            const raw = userObjOrId && (userObjOrId.uid || userObjOrId.email || userObjOrId);
+            const normalized = String(raw || 'guest').toLowerCase().trim();
+            return normalized || 'guest';
+        };
+
+        const getUserDocId = (userObjOrId) => getUserStorageKey(userObjOrId).replace(/[^a-zA-Z0-9_@.-]/g, '_');
+
         const sortTransactionsIST = (txnsList) => {
             return [...txnsList].sort((a, b) => getTxnTime(b) - getTxnTime(a));
         };
@@ -170,6 +178,7 @@
             const [activeTab, setActiveTab] = useState('payments');
             const [balance, setBalance] = useState(INITIAL_SEED_BALANCE);
             const [transactions, setTransactions] = useState([]);
+            const [highRiskTransactions, setHighRiskTransactions] = useState([]);
             const [selectedTxn, setSelectedTxn] = useState(null);
 
             // Auth Portal States
@@ -232,7 +241,35 @@
                         created_at: getIndianTimestamp(),
                         last_active: getIndianTimestamp()
                     }, { merge: true }).catch(err => console.error("[Firestore Error]", err));
+                    db.collection("users").doc(cleanDocId).collection("high_risk_transactions").doc("__meta__").set({
+                        initialized: true,
+                        user_email: emailStr,
+                        user_uid: uId,
+                        created_at: getIndianTimestamp()
+                    }, { merge: true }).catch(() => {});
                 }
+            };
+
+            const ensureHighRiskSection = (currentUser) => {
+                if (!currentUser || typeof db === 'undefined' || db === null) {
+                    return;
+                }
+                const cleanDocId = getUserDocId(currentUser);
+                const key = `paysphere_highrisk_${getUserStorageKey(currentUser)}`;
+                try {
+                    const saved = localStorage.getItem(key);
+                    if (!saved) {
+                        localStorage.setItem(key, JSON.stringify([]));
+                    }
+                } catch (e) {}
+
+                db.collection("users").doc(cleanDocId).collection("high_risk_transactions").doc("__meta__").set({
+                    initialized: true,
+                    user_email: currentUser.email || '',
+                    user_uid: currentUser.uid || '',
+                    created_at: getIndianTimestamp(),
+                    section_name: 'high_risk_transactions'
+                }, { merge: true }).catch(() => {});
             };
 
             const updateBalanceInDatabase = (currentUser, newBal) => {
@@ -263,9 +300,11 @@
                 const userId = String(user.uid || user.email || "default").toLowerCase().trim();
                 const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
                 const userKey = `paysphere_txns_${cleanDocId}`;
+                const highRiskKey = `paysphere_highrisk_${cleanDocId}`;
                 const balKey = `paysphere_balance_${cleanDocId}`;
 
-                // 1. Fetch cached per-user balance
+                ensureHighRiskSection(user);
+
                 let currentBal = INITIAL_SEED_BALANCE;
                 try {
                     const savedBal = localStorage.getItem(balKey);
@@ -277,7 +316,6 @@
                     }
                 } catch(e) {}
 
-                // 2. Fetch cached per-user transactions
                 try {
                     const savedTxns = localStorage.getItem(userKey);
                     if (savedTxns) {
@@ -290,9 +328,21 @@
                     setTransactions(DEFAULT_DEMO_TXNS);
                 }
 
+                try {
+                    const savedHighRisk = localStorage.getItem(highRiskKey);
+                    if (savedHighRisk) {
+                        setHighRiskTransactions(sortTransactionsIST(JSON.parse(savedHighRisk)));
+                    } else {
+                        setHighRiskTransactions([]);
+                        localStorage.setItem(highRiskKey, JSON.stringify([]));
+                    }
+                } catch(e) {
+                    setHighRiskTransactions([]);
+                    try { localStorage.setItem(highRiskKey, JSON.stringify([])); } catch (err) {}
+                }
+
                 syncUserToFirestore(user.uid, user.email, currentBal);
 
-                // 3. Real-time Firestore sync strictly isolated to users/{cleanDocId}
                 if (typeof db !== 'undefined' && db !== null) {
                     const unsubUser = db.collection("users").doc(cleanDocId).onSnapshot(doc => {
                         if (doc.exists && doc.data().balance !== undefined) {
@@ -309,12 +359,36 @@
                                 const sorted = sortTransactionsIST(dbTxns);
                                 setTransactions(sorted);
                                 try { localStorage.setItem(userKey, JSON.stringify(sorted)); } catch(e) {}
+
+                                // AUTO SYNC HIGH RISK TRANSACTIONS FOR THIS USER TO THEIR DEDICATED SUBCOLLECTION
+                                dbTxns.forEach(t => {
+                                    const isHighRisk = t.riskProfile === 'High Risk' || 
+                                                       t.status === 'Flagged' || 
+                                                       (t.securityStatus && (t.securityStatus.includes('High Risk') || t.securityStatus.includes('Flagged')));
+                                    if (isHighRisk && t.id && t.id !== '__meta__') {
+                                        const highRiskData = {
+                                            ...t,
+                                            user_email: user.email,
+                                            user_uid: user.uid
+                                        };
+                                        db.collection("users").doc(cleanDocId).collection("high_risk_transactions").doc(t.id).set(highRiskData, { merge: true }).catch(() => {});
+                                    }
+                                });
                             }
                         }, err => console.warn("Firestore txns sync error:", err));
+
+                    const unsubHighRisk = db.collection("users").doc(cleanDocId).collection("high_risk_transactions")
+                        .onSnapshot(snapshot => {
+                            const dbHighRisk = snapshot.docs.filter(doc => doc.id !== '__meta__').map(doc => doc.data());
+                            const sorted = sortTransactionsIST(dbHighRisk);
+                            setHighRiskTransactions(sorted);
+                            try { localStorage.setItem(highRiskKey, JSON.stringify(sorted)); } catch(e) {}
+                        }, err => console.warn("Firestore high-risk sync error:", err));
 
                     return () => {
                         unsubUser();
                         unsubTxns();
+                        unsubHighRisk();
                     };
                 }
             }, [user]);
@@ -598,6 +672,11 @@
                 const updatedTxns = sortTransactionsIST([txnData, ...transactions]);
                 setTransactions(updatedTxns);
 
+                const nextHighRisk = txnData.riskProfile === 'High Risk'
+                    ? sortTransactionsIST([txnData, ...highRiskTransactions])
+                    : highRiskTransactions;
+                setHighRiskTransactions(nextHighRisk);
+
                 const newBal = Math.max(0, balance - txnData.amount);
                 updateBalanceInDatabase(user, newBal);
 
@@ -605,10 +684,21 @@
                 const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
 
                 try { localStorage.setItem(`paysphere_txns_${cleanDocId}`, JSON.stringify(updatedTxns)); } catch(e) {}
+                if (txnData.riskProfile === 'High Risk') {
+                    try { localStorage.setItem(`paysphere_highrisk_${getUserStorageKey(user)}`, JSON.stringify(nextHighRisk)); } catch(e) {}
+                }
 
                 if (typeof db !== 'undefined' && db !== null) {
                     db.collection("users").doc(cleanDocId).collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
-                    db.collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
+                    
+                    const isHighRisk = txnData.riskProfile === 'High Risk' || 
+                                       txnData.status === 'Flagged' || 
+                                       (txnData.securityStatus && (txnData.securityStatus.includes('High Risk') || txnData.securityStatus.includes('Flagged')));
+                    
+                    if (isHighRisk) {
+                        db.collection("users").doc(cleanDocId).collection("high_risk_transactions").doc(txnData.id).set(txnData).catch(() => {});
+                        db.collection("high_risk_transactions").doc(txnData.id).set({ ...txnData, user_uid: user.uid, user_email: user.email }).catch(() => {});
+                    }
                 }
 
                 if (typeof rtdb !== 'undefined' && rtdb !== null) {
@@ -1114,6 +1204,27 @@
                                             </div>
                                             <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-1 rounded-full">VERIFIED</span>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div className="glass-panel p-6 rounded-2xl space-y-4">
+                                    <h3 className="text-base font-bold text-white">High Risk Transactions</h3>
+                                    <div className="space-y-3 text-xs">
+                                        {highRiskTransactions.length === 0 ? (
+                                            <div className="p-3.5 bg-slate-900/70 rounded-xl border border-slate-800 text-slate-400">
+                                                No high-risk transactions for this user yet.
+                                            </div>
+                                        ) : highRiskTransactions.map(t => (
+                                            <div key={t.id} className="p-3.5 bg-slate-900/70 rounded-xl border border-red-500/30 flex items-center justify-between">
+                                                <div>
+                                                    <div className="font-bold text-red-300">{t.recipient}</div>
+                                                    <div className="text-[10px] text-slate-400">{formatISTDate(t)} • ₹{t.amount.toLocaleString('en-IN')}</div>
+                                                </div>
+                                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
+                                                    {t.securityStatus || 'High Risk'}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
