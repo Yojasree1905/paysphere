@@ -5,10 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PaySphere — Digital Wallet & Intelligent Fraud Analytics</title>
     
-    <!-- Dependencies loaded via CDN -->
+    <!-- Core React & Babel CDN -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Firebase JS SDK (v10 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -63,7 +68,7 @@
                 "arrow-right": <><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>,
                 cpu: <><rect width="12" height="12" x="6" y="6" rx="2"/><path d="M9 18v3"/><path d="M15 18v3"/><path d="M9 3v3"/><path d="M15 3v3"/><path d="M3 9h3"/><path d="M3 15h3"/><path d="M18 9h3"/><path d="M18 15h3"/></>,
                 layers: <><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></>,
-                "book-open": <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>
+                "book-open": <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 1 3-3h7z"/></>
             };
 
             return (
@@ -88,6 +93,7 @@
             const [selectedTxn, setSelectedTxn] = useState(null);
             const [showGuideModal, setShowGuideModal] = useState(false);
             const [apiConnected, setApiConnected] = useState(false);
+            const [firebaseActive, setFirebaseActive] = useState(false);
 
             // Send Money Form State
             const [sendRecipient, setSendRecipient] = useState('');
@@ -103,20 +109,22 @@
 
             // AI Chat State
             const [chatMessages, setChatMessages] = useState([
-                { sender: 'bot', text: '👋 Hi! I am your PaySphere AI Financial Assistant. Ask me anything like "Why was my transfer flagged?" or "How does fraud detection work?"' }
+                { sender: 'bot', text: '👋 Hi! I am your PaySphere AI Financial Assistant. Ask me about your transactions, flagged payments, or spending breakdowns!' }
             ]);
             const [chatInput, setChatInput] = useState('');
 
-            // Check if Python FastAPI Backend is active
+            // Check if Python FastAPI Backend & Firebase are active
             useEffect(() => {
                 fetch(`${API_BASE_URL}/api/v1/health`)
                     .then(res => res.json())
                     .then(data => {
-                        if (data.status === "online") {
-                            setApiConnected(true);
-                        }
+                        if (data.status === "online") setApiConnected(true);
                     })
                     .catch(() => setApiConnected(false));
+
+                if (typeof db !== 'undefined' && db !== null) {
+                    setFirebaseActive(true);
+                }
             }, []);
 
             // Calculate ML Risk Score dynamically
@@ -141,7 +149,7 @@
                 setMlRiskScore(score);
             };
 
-            // Process New Peer-to-Peer Transfer
+            // Process New Peer-to-Peer Transfer & Sync to Cloud Firestore if connected
             const handleSendMoney = async (e) => {
                 e.preventDefault();
                 const amt = parseFloat(sendAmount);
@@ -194,6 +202,16 @@
                     status: statusLabel
                 };
 
+                // Sync to Cloud Firestore if active
+                if (typeof db !== 'undefined' && db !== null) {
+                    try {
+                        db.collection("transactions").doc(txnId).set(newTxn);
+                        console.log("[Firestore] Transaction saved:", txnId);
+                    } catch (fsErr) {
+                        console.warn("[Firestore] Save warning:", fsErr);
+                    }
+                }
+
                 if (statusLabel === "Approved") {
                     setBalance(prev => prev - amt);
                 }
@@ -205,28 +223,64 @@
                 alert(`Transaction Processed!\nStatus: ${statusLabel}\nAI Risk Score: ${risk}/100 (${riskLabel})`);
             };
 
-            // AI Chat handler
+            // Intelligent AI Chat Assistant — Data Analysis Engine
             const handleSendMessage = (e) => {
                 e.preventDefault();
                 if (!chatInput.trim()) return;
 
                 const userMsg = chatInput.trim();
+                const lower = userMsg.toLowerCase();
                 const updated = [...chatMessages, { sender: 'user', text: userMsg }];
                 setChatMessages(updated);
                 setChatInput('');
 
                 setTimeout(() => {
-                    let reply = "I analyzed your recent transactions. Your overall spending risk profile is LOW (14/100).";
-                    const lower = userMsg.toLowerCase();
+                    let reply = "";
 
-                    if (lower.includes("flagged") || lower.includes("fraud")) {
-                        reply = "Transaction TXN-90411 (₹2,45,000.00 to Forex Exchange) was flagged because the amount was very large and originated from a new IP location.";
+                    // Calculate live statistics from transaction data
+                    const totalTxns = transactions.length;
+                    const flagged = transactions.filter(t => t.status === "Flagged" || t.riskScore > 70);
+                    const approved = transactions.filter(t => t.status === "Approved");
+                    const totalSpent = transactions.filter(t => t.type === "Debit").reduce((acc, t) => acc + t.amount, 0);
+
+                    if (lower.includes("detail") || lower.includes("notes") || lower.includes("list") || lower.includes("summary")) {
+                        reply = `📊 Here are the detailed notes of your ${totalTxns} transactions:\n\n` +
+                                transactions.map((t, idx) => 
+                                    `${idx+1}. ${t.id}: ₹${t.amount.toLocaleString('en-IN')} to ${t.recipient} (${t.category}) — Status: ${t.status} (AI Risk: ${t.riskScore}/100)`
+                                ).join("\n\n") +
+                                (flagged.length > 0 
+                                    ? `\n\n⚠️ Note: ${flagged.length} transaction(s) was flagged because the amount was unusually large or originated from an unrecognized network IP.` 
+                                    : `\n\n✅ All transactions are within safe limits.`);
+
+                    } else if (lower.includes("other") || lower.includes("rest") || lower.includes("approved")) {
+                        const nonFlagged = transactions.filter(t => t.status !== "Flagged");
+                        reply = `💳 Here are your other ${nonFlagged.length} transactions:\n\n` +
+                                nonFlagged.map(t => 
+                                    `• ${t.recipient} (${t.category}): ${t.type === 'Credit' ? '+' : '-'}₹${t.amount.toLocaleString('en-IN')} — Status: ${t.status} (Risk: ${t.riskScore}/100)`
+                                ).join("\n") +
+                                `\n\nAll of these were verified and approved smoothly!`;
+
+                    } else if (lower.includes("flagged") || lower.includes("fraud") || lower.includes("high risk") || lower.includes("why")) {
+                        if (flagged.length > 0) {
+                            reply = `🚨 Flagged Transaction Breakdown:\n\n` +
+                                    flagged.map(t => 
+                                        `• ${t.id} (₹${t.amount.toLocaleString('en-IN')} to ${t.recipient}): Risk Score ${t.riskScore}/100. Reasons: High transfer amount, single-hour velocity peak, and new location hop.`
+                                    ).join("\n");
+                        } else {
+                            reply = `🎉 Great news! None of your current transactions are flagged. Your overall wallet safety score is 100% (Low Risk).`;
+                        }
+
                     } else if (lower.includes("dining") || lower.includes("food")) {
-                        reply = "You spent ₹1,850.00 on Dining this week. Your monthly food budget is 92% intact.";
-                    } else if (lower.includes("spend") || lower.includes("predict")) {
-                        reply = "Based on your recent transfers, your estimated spending for next week is ₹32,000.00.";
-                    } else if (lower.includes("how") || lower.includes("work")) {
-                        reply = "PaySphere evaluates transactions using a Machine Learning algorithm (Isolation Forest) looking at 3 things: Amount (₹), Transfer Speed (Velocity in 1 hour), and Location Distance (km).";
+                        const dining = transactions.filter(t => t.category.toLowerCase().includes("dining"));
+                        const totalDining = dining.reduce((acc, t) => acc + t.amount, 0);
+                        reply = `🍽️ Dining Spending Analysis:\nYou have ${dining.length} dining transaction(s) totaling ₹${totalDining.toLocaleString('en-IN')}. Your monthly food budget is 92% intact.`;
+
+                    } else if (lower.includes("spend") || lower.includes("total") || lower.includes("predict")) {
+                        reply = `💰 Spending Telemetry:\nTotal debited across ${transactions.length} records is ₹${totalSpent.toLocaleString('en-IN')}.\nBased on your recurring transfers, estimated expenditure for next week is ~₹32,000.00.`;
+
+                    } else {
+                        reply = `I analyzed your portfolio of ${totalTxns} transactions totaling ₹${totalSpent.toLocaleString('en-IN')}. ` +
+                                `${flagged.length} transfer(s) flagged as High Risk, while ${approved.length} are Approved. Ask me for "detailed notes", "other transactions", or "flagged reasons"!`;
                     }
 
                     setChatMessages([...updated, { sender: 'bot', text: reply }]);
@@ -257,7 +311,7 @@
                                 <div className="hidden sm:flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full">
                                     <span className={`w-2 h-2 rounded-full ${apiConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
                                     <span className="text-xs text-slate-300 font-medium">
-                                        Python API: {apiConnected ? 'Connected' : 'Offline (Client Mode)'}
+                                        Python API: {apiConnected ? 'Connected' : 'Offline'}
                                     </span>
                                 </div>
 
@@ -482,7 +536,7 @@
                                         </div>
                                         <div>
                                             <h3 className="text-sm font-bold text-white">PaySphere AI Assistant</h3>
-                                            <p className="text-[10px] text-emerald-400 font-medium">Ask questions in plain English!</p>
+                                            <p className="text-[10px] text-emerald-400 font-medium">Data-Driven Intelligence Active</p>
                                         </div>
                                     </div>
                                 </div>
@@ -490,7 +544,7 @@
                                 <div className="flex-1 p-6 overflow-y-auto space-y-4">
                                     {chatMessages.map((msg, i) => (
                                         <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[80%] rounded-2xl p-4 text-xs leading-relaxed ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'}`}>
+                                            <div className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed whitespace-pre-line ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'}`}>
                                                 {msg.text}
                                             </div>
                                         </div>
@@ -498,7 +552,7 @@
                                 </div>
 
                                 <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-800 bg-slate-900/40 flex space-x-3">
-                                    <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Ask: 'Why was my payment flagged?' or 'How does AI check fraud?'" className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                                    <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Ask: 'give me detailed notes of my transactions' or 'what about other transactions?'" className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
                                     <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center space-x-1">
                                         <span>Ask</span>
                                         <Icon name="send" className="w-3.5 h-3.5" />
