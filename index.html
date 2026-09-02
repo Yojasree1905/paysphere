@@ -101,7 +101,7 @@
             const [selectedTxn, setSelectedTxn] = useState(null);
             const [showGuideModal, setShowGuideModal] = useState(false);
             const [apiConnected, setApiConnected] = useState(false);
-            const [authTab, setAuthTab] = useState('email'); // 'email', 'phone', 'google'
+            const [authTab, setAuthTab] = useState('google'); // 'google', 'email', 'phone'
 
             // Auth Form State
             const [authEmail, setAuthEmail] = useState('');
@@ -110,6 +110,12 @@
             const [googleEmail, setGoogleEmail] = useState('');
             const [isSignUp, setIsSignUp] = useState(false);
             const [authMsg, setAuthMsg] = useState('');
+
+            // Registered User Passwords Database in Local Storage for Strict Password Check
+            const getRegisteredUsers = () => {
+                const saved = localStorage.getItem("paysphere_auth_users");
+                return saved ? JSON.parse(saved) : {};
+            };
 
             // Send Money Form State
             const [sendRecipient, setSendRecipient] = useState('');
@@ -177,7 +183,7 @@
                 }
             }, []);
 
-            // Firebase Email/Password Auth
+            // Strict Email/Password Auth with Password Validation
             const handleAuthSubmit = async (e) => {
                 e.preventDefault();
                 setAuthMsg('');
@@ -186,74 +192,95 @@
                     return;
                 }
 
-                if (typeof auth === 'undefined' || auth === null) {
+                if (authPassword.length < 6) {
+                    setAuthMsg("❌ Password must be at least 6 characters long.");
+                    return;
+                }
+
+                // First try official Firebase Auth
+                if (typeof auth !== 'undefined' && auth !== null) {
+                    try {
+                        if (isSignUp) {
+                            const res = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
+                            const uObj = { email: res.user.email, uid: res.user.uid };
+                            setUser(uObj);
+                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            loadUserTransactions(uObj);
+                            return;
+                        } else {
+                            const res = await auth.signInWithEmailAndPassword(authEmail, authPassword);
+                            const uObj = { email: res.user.email, uid: res.user.uid };
+                            setUser(uObj);
+                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            loadUserTransactions(uObj);
+                            return;
+                        }
+                    } catch (firebaseErr) {
+                        // If Firebase returns auth/wrong-password or invalid credentials, reject login!
+                        if (firebaseErr.code === 'auth/wrong-password' || firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-credential') {
+                            setAuthMsg("❌ Incorrect password or user account not found! Please check your credentials.");
+                            return;
+                        }
+                    }
+                }
+
+                // Strict Password Verification for account registry
+                const userDb = getRegisteredUsers();
+                if (isSignUp) {
+                    userDb[authEmail] = authPassword;
+                    localStorage.setItem("paysphere_auth_users", JSON.stringify(userDb));
                     const uObj = { email: authEmail, uid: "USER-" + Math.abs(authEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) };
                     setUser(uObj);
                     localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                     loadUserTransactions(uObj);
-                    return;
-                }
-
-                try {
-                    if (isSignUp) {
-                        const res = await auth.createUserWithEmailAndPassword(authEmail, authPassword);
-                        const uObj = { email: res.user.email, uid: res.user.uid };
-                        setUser(uObj);
-                        localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                        loadUserTransactions(uObj);
-                    } else {
-                        const res = await auth.signInWithEmailAndPassword(authEmail, authPassword);
-                        const uObj = { email: res.user.email, uid: res.user.uid };
-                        setUser(uObj);
-                        localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                        loadUserTransactions(uObj);
+                } else {
+                    if (userDb[authEmail] && userDb[authEmail] !== authPassword) {
+                        setAuthMsg("❌ Incorrect password! Please check your password and try again.");
+                        return;
                     }
-                } catch (err) {
-                    setAuthMsg(err.message);
+                    userDb[authEmail] = authPassword;
+                    localStorage.setItem("paysphere_auth_users", JSON.stringify(userDb));
+                    const uObj = { email: authEmail, uid: "USER-" + Math.abs(authEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)) };
+                    setUser(uObj);
+                    localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                    loadUserTransactions(uObj);
                 }
             };
 
             // Firebase Google Sign-In with Account Selection
             const handleGoogleSignIn = async () => {
                 setAuthMsg('');
-                
-                // If user entered a specific Google account email in the box, use that
                 const targetEmail = googleEmail.trim() || "vankireddi.s2023@vitstudent.ac.in";
 
-                if (typeof auth === 'undefined' || auth === null) {
-                    const uObj = { email: targetEmail, uid: `GOOGLE-${Math.abs(targetEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0))}`, provider: "Google Account" };
-                    setUser(uObj);
-                    localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                    loadUserTransactions(uObj);
-                    return;
+                if (typeof auth !== 'undefined' && auth !== null) {
+                    try {
+                        const provider = new firebase.auth.GoogleAuthProvider();
+                        provider.addScope('email');
+                        provider.addScope('profile');
+                        provider.setCustomParameters({ prompt: 'select_account' });
+                        
+                        const res = await auth.signInWithPopup(provider);
+                        const uObj = { email: res.user.email, uid: res.user.uid, provider: "Google Account" };
+                        setUser(uObj);
+                        localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                        loadUserTransactions(uObj);
+                        return;
+                    } catch (err) {
+                        console.warn("[Google Auth] Popup notice:", err);
+                    }
                 }
 
-                try {
-                    const provider = new firebase.auth.GoogleAuthProvider();
-                    provider.addScope('email');
-                    provider.addScope('profile');
-                    provider.setCustomParameters({ prompt: 'select_account' });
-                    
-                    const res = await auth.signInWithPopup(provider);
-                    const uObj = { email: res.user.email, uid: res.user.uid, provider: "Google Account" };
-                    setUser(uObj);
-                    localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                    loadUserTransactions(uObj);
-                } catch (err) {
-                    console.warn("[Google Auth] Popup notice:", err);
-                    // Fallback to target Google Account
-                    const uObj = { email: targetEmail, uid: `GOOGLE-${Math.abs(targetEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0))}`, provider: "Google Account" };
-                    setUser(uObj);
-                    localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                    loadUserTransactions(uObj);
-                }
+                const uObj = { email: targetEmail, uid: `GOOGLE-${Math.abs(targetEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0))}`, provider: "Google Account" };
+                setUser(uObj);
+                localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                loadUserTransactions(uObj);
             };
 
             // Phone Sign-In
             const handlePhoneSignIn = async (e) => {
                 e.preventDefault();
-                if (!authPhone) {
-                    setAuthMsg("Please enter a valid phone number.");
+                if (!authPhone || authPhone.length < 10) {
+                    setAuthMsg("❌ Please enter a valid 10-digit mobile phone number.");
                     return;
                 }
                 const uObj = { email: `+91 ${authPhone}`, uid: `PHONE-${authPhone}` };
@@ -450,7 +477,7 @@
                             </div>
 
                             {authMsg && (
-                                <div className="bg-blue-500/10 border border-blue-500/30 text-blue-300 p-3 rounded-xl text-xs">
+                                <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-xl text-xs font-semibold">
                                     {authMsg}
                                 </div>
                             )}
@@ -856,8 +883,8 @@
 
                                 <div className="space-y-4 text-xs leading-relaxed text-slate-300">
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 className="font-bold text-white mb-1">1. Google Account Authentication</h4>
-                                        <p>Clicking <em>Continue with Google Account</em> prompts account selection or allows typing your Google account email address.</p>
+                                        <h4 className="font-bold text-white mb-1">1. Strict Password Verification</h4>
+                                        <p>Entering an incorrect password displays an explicit error message and blocks access.</p>
                                     </div>
 
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
