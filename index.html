@@ -9,10 +9,9 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Styling & Icons -->
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
@@ -51,6 +50,29 @@
         const { useState, useEffect } = React;
         const API_BASE_URL = 'http://localhost:8000';
 
+        // Built-in Pure SVG Icons for Zero-Dependency Rendering
+        function Icon({ name, className = "w-4 h-4" }) {
+            const icons = {
+                wallet: <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3v4a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V7" />,
+                "credit-card": <><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></>,
+                "shield-alert": <><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
+                bot: <><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></>,
+                "bar-chart-3": <><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></>,
+                send: <><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></>,
+                "help-circle": <><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></>,
+                "arrow-right": <><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>,
+                cpu: <><rect width="12" height="12" x="6" y="6" rx="2"/><path d="M9 18v3"/><path d="M15 18v3"/><path d="M9 3v3"/><path d="M15 3v3"/><path d="M3 9h3"/><path d="M3 15h3"/><path d="M18 9h3"/><path d="M18 15h3"/></>,
+                layers: <><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></>,
+                "book-open": <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>
+            };
+
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || icons.wallet}
+                </svg>
+            );
+        }
+
         const INITIAL_TRANSACTIONS = [
             { id: "TXN-90412", date: "2026-09-02 18:32", recipient: "AWS Cloud Services", category: "Tech & Hosting", amount: 149.99, type: "Debit", riskScore: 12, riskLevel: "Low Risk", status: "Approved" },
             { id: "TXN-90411", date: "2026-09-02 14:15", recipient: "International Forex Exchange", category: "Wire Transfer", amount: 2450.00, type: "Debit", riskScore: 84, riskLevel: "High Risk", status: "Flagged" },
@@ -84,10 +106,6 @@
                 { sender: 'bot', text: '👋 Hi! I am your PaySphere AI Financial Assistant. Ask me anything like "Why was my transfer flagged?" or "How does fraud detection work?"' }
             ]);
             const [chatInput, setChatInput] = useState('');
-
-            useEffect(() => {
-                lucide.createIcons();
-            }, [activeTab, transactions, chatMessages, mlRiskScore, showGuideModal]);
 
             // Check if Python FastAPI Backend is active
             useEffect(() => {
@@ -208,87 +226,86 @@
             };
 
             return (
-                <div class="min-h-screen pb-12">
-                    <!-- Top Navigation Header -->
-                    <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur-md">
-                        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                    <i data-lucide="wallet" class="w-5 h-5 text-white"></i>
+                <div className="min-h-screen pb-12">
+                    {/* Top Navigation Header */}
+                    <header className="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur-md">
+                        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                    <Icon name="wallet" className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h1 class="text-xl font-bold gradient-text tracking-tight">PaySphere</h1>
-                                    <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Digital Wallet & AI Analytics</p>
+                                    <h1 className="text-xl font-bold gradient-text tracking-tight">PaySphere</h1>
+                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Digital Wallet & AI Analytics</p>
                                 </div>
                             </div>
 
-                            <div class="flex items-center space-x-4">
-                                <!-- Easy Student Guide Button -->
-                                <button onClick={() => setShowGuideModal(true)} class="bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-xs font-bold px-3 py-1.5 rounded-full flex items-center space-x-1.5 transition-all">
-                                    <i data-lucide="help-circle" class="w-4 h-4 text-purple-400"></i>
+                            <div className="flex items-center space-x-4">
+                                <button onClick={() => setShowGuideModal(true)} className="bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 text-xs font-bold px-3 py-1.5 rounded-full flex items-center space-x-1.5 transition-all">
+                                    <Icon name="help-circle" className="w-4 h-4 text-purple-400" />
                                     <span>How It Works Guide</span>
                                 </button>
 
-                                <div class="hidden sm:flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full">
-                                    <span class={`w-2 h-2 rounded-full ${apiConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                                    <span class="text-xs text-slate-300 font-medium">
+                                <div className="hidden sm:flex items-center space-x-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-full">
+                                    <span className={`w-2 h-2 rounded-full ${apiConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                                    <span className="text-xs text-slate-300 font-medium">
                                         Python API: {apiConnected ? 'Connected' : 'Offline (Client Mode)'}
                                     </span>
                                 </div>
 
-                                <div class="text-right">
-                                    <p class="text-[10px] text-slate-400 font-medium">Balance</p>
-                                    <p class="text-base font-extrabold text-emerald-400 tracking-tight">${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                <div className="text-right">
+                                    <p className="text-[10px] text-slate-400 font-medium">Balance</p>
+                                    <p className="text-base font-extrabold text-emerald-400 tracking-tight">${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                                 </div>
                             </div>
                         </div>
                     </header>
 
-                    <!-- Main Navigation Tabs -->
-                    <main class="max-w-7xl mx-auto px-6 pt-8">
-                        <div class="flex space-x-2 border-b border-slate-800 mb-8 overflow-x-auto">
-                            <button onClick={() => setActiveTab('wallet')} class={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'wallet' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
-                                <i data-lucide="credit-card" class="w-4 h-4"></i>
+                    {/* Main Navigation Tabs */}
+                    <main className="max-w-7xl mx-auto px-6 pt-8">
+                        <div className="flex space-x-2 border-b border-slate-800 mb-8 overflow-x-auto">
+                            <button onClick={() => setActiveTab('wallet')} className={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'wallet' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                                <Icon name="credit-card" className="w-4 h-4" />
                                 <span>1. Send Money & History</span>
                             </button>
-                            <button onClick={() => setActiveTab('fraud')} class={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'fraud' ? 'border-purple-500 text-purple-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
-                                <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                            <button onClick={() => setActiveTab('fraud')} className={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'fraud' ? 'border-purple-500 text-purple-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                                <Icon name="shield-alert" className="w-4 h-4" />
                                 <span>2. AI Fraud Detector Simulator</span>
                             </button>
-                            <button onClick={() => setActiveTab('ai')} class={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'ai' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
-                                <i data-lucide="bot" class="w-4 h-4"></i>
+                            <button onClick={() => setActiveTab('ai')} className={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'ai' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                                <Icon name="bot" className="w-4 h-4" />
                                 <span>3. AI Assistant Chat</span>
                             </button>
-                            <button onClick={() => setActiveTab('analytics')} class={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'analytics' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
-                                <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                            <button onClick={() => setActiveTab('analytics')} className={`pb-3 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'analytics' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                                <Icon name="bar-chart-3" className="w-4 h-4" />
                                 <span>4. System Stats</span>
                             </button>
                         </div>
 
-                        <!-- TAB 1: WALLET & TRANSFERS -->
+                        {/* TAB 1: WALLET & TRANSFERS */}
                         {activeTab === 'wallet' && (
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div class="space-y-6">
-                                    <div class="glass-card p-6 rounded-2xl">
-                                        <h3 class="text-base font-bold text-white mb-4 flex items-center space-x-2">
-                                            <i data-lucide="send" class="w-4 h-4 text-blue-400"></i>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                <div className="space-y-6">
+                                    <div className="glass-card p-6 rounded-2xl">
+                                        <h3 className="text-base font-bold text-white mb-4 flex items-center space-x-2">
+                                            <Icon name="send" className="w-4 h-4 text-blue-400" />
                                             <span>Send Money</span>
                                         </h3>
 
-                                        <form onSubmit={handleSendMoney} class="space-y-4">
+                                        <form onSubmit={handleSendMoney} className="space-y-4">
                                             <div>
-                                                <label class="block text-xs font-semibold text-slate-400 mb-1">Recipient Name / Account</label>
-                                                <input type="text" value={sendRecipient} onChange={e => setSendRecipient(e.target.value)} placeholder="e.g. Alex Smith" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" required />
+                                                <label className="block text-xs font-semibold text-slate-400 mb-1">Recipient Name / Account</label>
+                                                <input type="text" value={sendRecipient} onChange={e => setSendRecipient(e.target.value)} placeholder="e.g. Alex Smith" className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" required />
                                             </div>
 
-                                            <div class="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Amount ($ USD)</label>
-                                                    <input type="number" step="0.01" value={sendAmount} onChange={e => setSendAmount(e.target.value)} placeholder="50.00" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" required />
+                                                    <label className="block text-xs font-semibold text-slate-400 mb-1">Amount ($ USD)</label>
+                                                    <input type="number" step="0.01" value={sendAmount} onChange={e => setSendAmount(e.target.value)} placeholder="50.00" className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" required />
                                                 </div>
                                                 <div>
-                                                    <label class="block text-xs font-semibold text-slate-400 mb-1">Category</label>
-                                                    <select value={sendCategory} onChange={e => setSendCategory(e.target.value)} class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                                                    <label className="block text-xs font-semibold text-slate-400 mb-1">Category</label>
+                                                    <select value={sendCategory} onChange={e => setSendCategory(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
                                                         <option>Transfer</option>
                                                         <option>Dining</option>
                                                         <option>Tech & Hosting</option>
@@ -297,71 +314,71 @@
                                                 </div>
                                             </div>
 
-                                            <button type="submit" disabled={isAuthorizing} class="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm flex items-center justify-center space-x-2">
+                                            <button type="submit" disabled={isAuthorizing} className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm flex items-center justify-center space-x-2">
                                                 <span>{isAuthorizing ? 'Checking AI Risk...' : 'Send Money Now'}</span>
-                                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                                <Icon name="arrow-right" className="w-4 h-4" />
                                             </button>
                                         </form>
                                     </div>
 
-                                    <div class="glass-card p-6 rounded-2xl text-center">
-                                        <h4 class="text-sm font-bold text-white mb-2">QR Code Payment</h4>
-                                        <p class="text-xs text-slate-400 mb-4">Scan code to pay instantly</p>
-                                        <div class="w-32 h-32 mx-auto bg-white p-2 rounded-xl flex items-center justify-center shadow-inner">
-                                            <div class="grid grid-cols-5 gap-1 w-full h-full bg-slate-900 p-1 rounded">
-                                                <div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div>
-                                                <div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div>
-                                                <div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div>
-                                                <div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div>
-                                                <div class="bg-black"></div><div class="bg-black"></div><div class="bg-white"></div><div class="bg-black"></div><div class="bg-black"></div>
+                                    <div className="glass-card p-6 rounded-2xl text-center">
+                                        <h4 className="text-sm font-bold text-white mb-2">QR Code Payment</h4>
+                                        <p className="text-xs text-slate-400 mb-4">Scan code to pay instantly</p>
+                                        <div className="w-32 h-32 mx-auto bg-white p-2 rounded-xl flex items-center justify-center shadow-inner">
+                                            <div className="grid grid-cols-5 gap-1 w-full h-full bg-slate-900 p-1 rounded">
+                                                <div className="bg-black"></div><div className="bg-black"></div><div className="bg-white"></div><div className="bg-black"></div><div className="bg-black"></div>
+                                                <div className="bg-black"></div><div className="bg-white"></div><div className="bg-black"></div><div className="bg-white"></div><div className="bg-black"></div>
+                                                <div className="bg-white"></div><div className="bg-black"></div><div className="bg-black"></div><div className="bg-black"></div><div className="bg-white"></div>
+                                                <div className="bg-black"></div><div className="bg-white"></div><div className="bg-black"></div><div className="bg-white"></div><div className="bg-black"></div>
+                                                <div className="bg-black"></div><div className="bg-black"></div><div className="bg-white"></div><div className="bg-black"></div><div className="bg-black"></div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="lg:col-span-2 glass-card p-6 rounded-2xl">
-                                    <div class="flex items-center justify-between mb-6">
+                                <div className="lg:col-span-2 glass-card p-6 rounded-2xl">
+                                    <div className="flex items-center justify-between mb-6">
                                         <div>
-                                            <h3 class="text-base font-bold text-white">Recent Transactions</h3>
-                                            <p class="text-xs text-slate-400">All transfers checked by AI in real-time</p>
+                                            <h3 className="text-base font-bold text-white">Recent Transactions</h3>
+                                            <p className="text-xs text-slate-400">All transfers checked by AI in real-time</p>
                                         </div>
                                     </div>
 
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-left border-collapse">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
                                             <thead>
-                                                <tr class="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
-                                                    <th class="py-3 px-3">Txn ID</th>
-                                                    <th class="py-3 px-3">Recipient</th>
-                                                    <th class="py-3 px-3">Amount</th>
-                                                    <th class="py-3 px-3">AI Risk Score</th>
-                                                    <th class="py-3 px-3">Status</th>
-                                                    <th class="py-3 px-3 text-right">Receipt</th>
+                                                <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400">
+                                                    <th className="py-3 px-3">Txn ID</th>
+                                                    <th className="py-3 px-3">Recipient</th>
+                                                    <th className="py-3 px-3">Amount</th>
+                                                    <th className="py-3 px-3">AI Risk Score</th>
+                                                    <th className="py-3 px-3">Status</th>
+                                                    <th className="py-3 px-3 text-right">Receipt</th>
                                                 </tr>
                                             </thead>
-                                            <tbody class="divide-y divide-slate-800/50 text-xs">
+                                            <tbody className="divide-y divide-slate-800/50 text-xs">
                                                 {transactions.map(t => (
-                                                    <tr key={t.id} class="hover:bg-slate-900/50 transition-all">
-                                                        <td class="py-3 px-3 font-mono text-slate-300">{t.id}</td>
-                                                        <td class="py-3 px-3">
-                                                            <div class="font-semibold text-white">{t.recipient}</div>
-                                                            <div class="text-[10px] text-slate-400">{t.category} • {t.date}</div>
+                                                    <tr key={t.id} className="hover:bg-slate-900/50 transition-all">
+                                                        <td className="py-3 px-3 font-mono text-slate-300">{t.id}</td>
+                                                        <td className="py-3 px-3">
+                                                            <div className="font-semibold text-white">{t.recipient}</div>
+                                                            <div className="text-[10px] text-slate-400">{t.category} • {t.date}</div>
                                                         </td>
-                                                        <td class={`py-3 px-3 font-bold ${t.type === 'Credit' ? 'text-emerald-400' : 'text-slate-200'}`}>
+                                                        <td className={`py-3 px-3 font-bold ${t.type === 'Credit' ? 'text-emerald-400' : 'text-slate-200'}`}>
                                                             {t.type === 'Credit' ? '+' : '-'}${t.amount.toFixed(2)}
                                                         </td>
-                                                        <td class="py-3 px-3">
-                                                            <span class={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${t.riskScore > 70 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (t.riskScore > 40 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')}`}>
+                                                        <td className="py-3 px-3">
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold ${t.riskScore > 70 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (t.riskScore > 40 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')}`}>
                                                                 {t.riskScore}/100 ({t.riskLevel})
                                                             </span>
                                                         </td>
-                                                        <td class="py-3 px-3">
-                                                            <span class={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'Approved' ? 'bg-emerald-400/20 text-emerald-300' : 'bg-red-400/20 text-red-300'}`}>
+                                                        <td className="py-3 px-3">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'Approved' ? 'bg-emerald-400/20 text-emerald-300' : 'bg-red-400/20 text-red-300'}`}>
                                                                 {t.status}
                                                             </span>
                                                         </td>
-                                                        <td class="py-3 px-3 text-right">
-                                                            <button onClick={() => setSelectedTxn(t)} class="text-blue-400 hover:text-blue-300 underline font-semibold">
+                                                        <td className="py-3 px-3 text-right">
+                                                            <button onClick={() => setSelectedTxn(t)} className="text-blue-400 hover:text-blue-300 underline font-semibold">
                                                                 View Receipt
                                                             </button>
                                                         </td>
@@ -374,162 +391,162 @@
                             </div>
                         )}
 
-                        <!-- TAB 2: ML FRAUD SCORING ENGINE -->
+                        {/* TAB 2: ML FRAUD SCORING ENGINE */}
                         {activeTab === 'fraud' && (
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div class="glass-card p-6 rounded-2xl">
-                                    <h3 class="text-base font-bold text-white mb-2 flex items-center space-x-2">
-                                        <i data-lucide="cpu" class="w-5 h-5 text-purple-400"></i>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className="glass-card p-6 rounded-2xl">
+                                    <h3 className="text-base font-bold text-white mb-2 flex items-center space-x-2">
+                                        <Icon name="cpu" className="w-5 h-5 text-purple-400" />
                                         <span>Interactive AI Fraud Slider</span>
                                     </h3>
-                                    <p class="text-xs text-slate-400 mb-6">Drag the sliders to see how AI calculates fraud risk!</p>
+                                    <p className="text-xs text-slate-400 mb-6">Drag the sliders to see how AI calculates fraud risk!</p>
 
-                                    <div class="space-y-5">
+                                    <div className="space-y-5">
                                         <div>
-                                            <div class="flex justify-between text-xs font-semibold mb-1">
-                                                <span class="text-slate-300">1. Money Amount ($ USD)</span>
-                                                <span class="text-purple-400">${mlAmount}</span>
+                                            <div className="flex justify-between text-xs font-semibold mb-1">
+                                                <span className="text-slate-300">1. Money Amount ($ USD)</span>
+                                                <span className="text-purple-400">${mlAmount}</span>
                                             </div>
-                                            <input type="range" min="10" max="5000" step="50" value={mlAmount} onChange={e => { setMlAmount(e.target.value); handleCalculateRisk(); }} class="w-full accent-purple-500 bg-slate-900" />
+                                            <input type="range" min="10" max="5000" step="50" value={mlAmount} onChange={e => { setMlAmount(e.target.value); handleCalculateRisk(); }} className="w-full accent-purple-500 bg-slate-900" />
                                         </div>
 
                                         <div>
-                                            <div class="flex justify-between text-xs font-semibold mb-1">
-                                                <span class="text-slate-300">2. Transfer Speed (Number of transfers in 60s)</span>
-                                                <span class="text-purple-400">{mlVelocity} transfers</span>
+                                            <div className="flex justify-between text-xs font-semibold mb-1">
+                                                <span className="text-slate-300">2. Transfer Speed (Number of transfers in 60s)</span>
+                                                <span className="text-purple-400">{mlVelocity} transfers</span>
                                             </div>
-                                            <input type="range" min="1" max="10" value={mlVelocity} onChange={e => { setMlVelocity(e.target.value); handleCalculateRisk(); }} class="w-full accent-purple-500 bg-slate-900" />
+                                            <input type="range" min="1" max="10" value={mlVelocity} onChange={e => { setMlVelocity(e.target.value); handleCalculateRisk(); }} className="w-full accent-purple-500 bg-slate-900" />
                                         </div>
 
                                         <div>
-                                            <div class="flex justify-between text-xs font-semibold mb-1">
-                                                <span class="text-slate-300">3. Distance from Home Location (km)</span>
-                                                <span class="text-purple-400">{mlGeoDist} km</span>
+                                            <div className="flex justify-between text-xs font-semibold mb-1">
+                                                <span className="text-slate-300">3. Distance from Home Location (km)</span>
+                                                <span className="text-purple-400">{mlGeoDist} km</span>
                                             </div>
-                                            <input type="range" min="0" max="1000" step="10" value={mlGeoDist} onChange={e => { setMlGeoDist(e.target.value); handleCalculateRisk(); }} class="w-full accent-purple-500 bg-slate-900" />
+                                            <input type="range" min="0" max="1000" step="10" value={mlGeoDist} onChange={e => { setMlGeoDist(e.target.value); handleCalculateRisk(); }} className="w-full accent-purple-500 bg-slate-900" />
                                         </div>
                                     </div>
 
-                                    <div class="mt-8 p-6 bg-slate-900/80 rounded-xl border border-slate-800 text-center">
-                                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Calculated AI Fraud Risk</p>
-                                        <div class="text-5xl font-black gradient-text my-2">{mlRiskScore} / 100</div>
-                                        <p class="text-xs font-medium text-slate-300">
-                                            Result: <span class={mlRiskScore > 70 ? "text-red-400 font-bold" : (mlRiskScore > 40 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold")}>
+                                    <div className="mt-8 p-6 bg-slate-900/80 rounded-xl border border-slate-800 text-center">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Calculated AI Fraud Risk</p>
+                                        <div className="text-5xl font-black gradient-text my-2">{mlRiskScore} / 100</div>
+                                        <p className="text-xs font-medium text-slate-300">
+                                            Result: <span className={mlRiskScore > 70 ? "text-red-400 font-bold" : (mlRiskScore > 40 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold")}>
                                                 {mlRiskScore > 70 ? "HIGH RISK (BLOCKED)" : (mlRiskScore > 40 ? "MEDIUM RISK (REQUIRES OTP)" : "LOW RISK (APPROVED)")}
                                             </span>
                                         </p>
                                     </div>
                                 </div>
 
-                                <div class="glass-card p-6 rounded-2xl space-y-6">
-                                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
-                                        <i data-lucide="layers" class="w-5 h-5 text-blue-400"></i>
+                                <div className="glass-card p-6 rounded-2xl space-y-6">
+                                    <h3 className="text-base font-bold text-white flex items-center space-x-2">
+                                        <Icon name="layers" className="w-5 h-5 text-blue-400" />
                                         <span>How AI Decides Risk (Simple Rule)</span>
                                     </h3>
                                     
-                                    <div class="space-y-4 text-xs">
-                                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                                            <div class="font-bold text-white mb-1 text-sm">💡 Large Amounts ($)</div>
-                                            <p class="text-slate-400">Sending $4,000 suddenly is much riskier than sending $20 for coffee.</p>
+                                    <div className="space-y-4 text-xs">
+                                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                                            <div className="font-bold text-white mb-1 text-sm">💡 Large Amounts ($)</div>
+                                            <p className="text-slate-400">Sending $4,000 suddenly is much riskier than sending $20 for coffee.</p>
                                         </div>
 
-                                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                                            <div class="font-bold text-white mb-1 text-sm">⚡ Speed & Frequency</div>
-                                            <p class="text-slate-400">Sending 10 payments in 1 minute looks like a bot or hacker script.</p>
+                                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                                            <div className="font-bold text-white mb-1 text-sm">⚡ Speed & Frequency</div>
+                                            <p className="text-slate-400">Sending 10 payments in 1 minute looks like a bot or hacker script.</p>
                                         </div>
 
-                                        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
-                                            <div class="font-bold text-white mb-1 text-sm">📍 Unexpected Distance</div>
-                                            <p class="text-slate-400">If your account logs in from 1,000 km away in 2 seconds, AI flags it as suspicious location.</p>
+                                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                                            <div className="font-bold text-white mb-1 text-sm">📍 Unexpected Distance</div>
+                                            <p className="text-slate-400">If your account logs in from 1,000 km away in 2 seconds, AI flags it as suspicious location.</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        <!-- TAB 3: AI FINANCIAL ADVISOR -->
+                        {/* TAB 3: AI FINANCIAL ADVISOR */}
                         {activeTab === 'ai' && (
-                            <div class="max-w-3xl mx-auto glass-card rounded-2xl overflow-hidden flex flex-col h-[550px]">
-                                <div class="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                                            <i data-lucide="bot" class="w-5 h-5"></i>
+                            <div className="max-w-3xl mx-auto glass-card rounded-2xl overflow-hidden flex flex-col h-[550px]">
+                                <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                                            <Icon name="bot" className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 class="text-sm font-bold text-white">PaySphere AI Assistant</h3>
-                                            <p class="text-[10px] text-emerald-400 font-medium">Ask questions in plain English!</p>
+                                            <h3 className="text-sm font-bold text-white">PaySphere AI Assistant</h3>
+                                            <p className="text-[10px] text-emerald-400 font-medium">Ask questions in plain English!</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="flex-1 p-6 overflow-y-auto space-y-4">
+                                <div className="flex-1 p-6 overflow-y-auto space-y-4">
                                     {chatMessages.map((msg, i) => (
-                                        <div key={i} class={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            <div class={`max-w-[80%] rounded-2xl p-4 text-xs leading-relaxed ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'}`}>
+                                        <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[80%] rounded-2xl p-4 text-xs leading-relaxed ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none'}`}>
                                                 {msg.text}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
-                                <form onSubmit={handleSendMessage} class="p-4 border-t border-slate-800 bg-slate-900/40 flex space-x-3">
-                                    <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Ask: 'Why was my payment flagged?' or 'How does AI check fraud?'" class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
-                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center space-x-1">
+                                <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-800 bg-slate-900/40 flex space-x-3">
+                                    <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Ask: 'Why was my payment flagged?' or 'How does AI check fraud?'" className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                                    <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center space-x-1">
                                         <span>Ask</span>
-                                        <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                                        <Icon name="send" className="w-3.5 h-3.5" />
                                     </button>
                                 </form>
                             </div>
                         )}
 
-                        <!-- TAB 4: SYSTEM METRICS -->
+                        {/* TAB 4: SYSTEM METRICS */}
                         {activeTab === 'analytics' && (
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div class="glass-card p-6 rounded-2xl">
-                                    <p class="text-xs font-semibold text-slate-400">System Speed</p>
-                                    <h4 class="text-3xl font-black text-white my-2">1,482 TPS</h4>
-                                    <p class="text-xs text-emerald-400">Processes 1,482 transactions per second</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="glass-card p-6 rounded-2xl">
+                                    <p className="text-xs font-semibold text-slate-400">System Speed</p>
+                                    <h4 className="text-3xl font-black text-white my-2">1,482 TPS</h4>
+                                    <p className="text-xs text-emerald-400">Processes 1,482 transactions per second</p>
                                 </div>
 
-                                <div class="glass-card p-6 rounded-2xl">
-                                    <p class="text-xs font-semibold text-slate-400">AI Response Time</p>
-                                    <h4 class="text-3xl font-black text-purple-400 my-2">18.4 ms</h4>
-                                    <p class="text-xs text-slate-400">Super fast (under 20 milliseconds)</p>
+                                <div className="glass-card p-6 rounded-2xl">
+                                    <p className="text-xs font-semibold text-slate-400">AI Response Time</p>
+                                    <h4 className="text-3xl font-black text-purple-400 my-2">18.4 ms</h4>
+                                    <p className="text-xs text-slate-400">Super fast (under 20 milliseconds)</p>
                                 </div>
 
-                                <div class="glass-card p-6 rounded-2xl">
-                                    <p class="text-xs font-semibold text-slate-400">Fraud Accuracy</p>
-                                    <h4 class="text-3xl font-black text-amber-400 my-2">99.4%</h4>
-                                    <p class="text-xs text-emerald-400">Catches almost 100% of fake transfers</p>
+                                <div className="glass-card p-6 rounded-2xl">
+                                    <p className="text-xs font-semibold text-slate-400">Fraud Accuracy</p>
+                                    <h4 className="text-3xl font-black text-amber-400 my-2">99.4%</h4>
+                                    <p className="text-xs text-emerald-400">Catches almost 100% of fake transfers</p>
                                 </div>
                             </div>
                         )}
                     </main>
 
-                    <!-- Receipt Modal -->
+                    {/* Receipt Modal */}
                     {selectedTxn && (
-                        <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div class="glass-card bg-slate-900 border border-slate-700 max-w-md w-full p-6 rounded-2xl text-white space-y-4">
-                                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                                    <h3 class="font-bold text-sm">Official Transaction Receipt</h3>
-                                    <button onClick={() => setSelectedTxn(null)} class="text-slate-400 hover:text-white">✕</button>
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="glass-card bg-slate-900 border border-slate-700 max-w-md w-full p-6 rounded-2xl text-white space-y-4">
+                                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                    <h3 className="font-bold text-sm">Official Transaction Receipt</h3>
+                                    <button onClick={() => setSelectedTxn(null)} className="text-slate-400 hover:text-white">✕</button>
                                 </div>
 
-                                <div class="space-y-2 text-xs">
-                                    <div class="flex justify-between"><span class="text-slate-400">Receipt ID:</span><span class="font-mono font-bold">{selectedTxn.id}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400">Timestamp:</span><span>{selectedTxn.date}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400">Recipient:</span><span class="font-bold">{selectedTxn.recipient}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400">Category:</span><span>{selectedTxn.category}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400">Amount Paid:</span><span class="font-bold text-emerald-400">${selectedTxn.amount.toFixed(2)}</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400">AI Risk Score:</span><span>{selectedTxn.riskScore}/100</span></div>
-                                    <div class="flex justify-between"><span class="text-slate-400">Status:</span><span class="font-bold text-emerald-400">{selectedTxn.status}</span></div>
+                                <div className="space-y-2 text-xs">
+                                    <div className="flex justify-between"><span className="text-slate-400">Receipt ID:</span><span className="font-mono font-bold">{selectedTxn.id}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Timestamp:</span><span>{selectedTxn.date}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Recipient:</span><span className="font-bold">{selectedTxn.recipient}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Category:</span><span>{selectedTxn.category}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Amount Paid:</span><span className="font-bold text-emerald-400">${selectedTxn.amount.toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">AI Risk Score:</span><span>{selectedTxn.riskScore}/100</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Status:</span><span className="font-bold text-emerald-400">{selectedTxn.status}</span></div>
                                 </div>
 
-                                <div class="pt-4 border-t border-slate-800 flex space-x-3">
-                                    <button onClick={() => window.print()} class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs">
+                                <div className="pt-4 border-t border-slate-800 flex space-x-3">
+                                    <button onClick={() => window.print()} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs">
                                         Print / Save PDF
                                     </button>
-                                    <button onClick={() => setSelectedTxn(null)} class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs">
+                                    <button onClick={() => setSelectedTxn(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs">
                                         Close
                                     </button>
                                 </div>
@@ -537,51 +554,51 @@
                         </div>
                     )}
 
-                    <!-- Easy Student Guide Modal -->
+                    {/* Easy Student Guide Modal */}
                     {showGuideModal && (
-                        <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div class="glass-card bg-slate-900 border border-purple-500/30 max-w-xl w-full p-6 rounded-2xl text-white space-y-4 max-h-[85vh] overflow-y-auto">
-                                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                                    <h3 class="font-bold text-base text-purple-400 flex items-center space-x-2">
-                                        <i data-lucide="book-open" class="w-5 h-5"></i>
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="glass-card bg-slate-900 border border-purple-500/30 max-w-xl w-full p-6 rounded-2xl text-white space-y-4 max-h-[85vh] overflow-y-auto">
+                                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                    <h3 className="font-bold text-base text-purple-400 flex items-center space-x-2">
+                                        <Icon name="book-open" className="w-5 h-5" />
                                         <span>🎓 Student Guide: Understanding PaySphere</span>
                                     </h3>
-                                    <button onClick={() => setShowGuideModal(false)} class="text-slate-400 hover:text-white">✕</button>
+                                    <button onClick={() => setShowGuideModal(false)} className="text-slate-400 hover:text-white">✕</button>
                                 </div>
 
-                                <div class="space-y-4 text-xs leading-relaxed text-slate-300">
-                                    <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 class="font-bold text-white mb-1">1. What is PaySphere?</h4>
+                                <div className="space-y-4 text-xs leading-relaxed text-slate-300">
+                                    <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
+                                        <h4 className="font-bold text-white mb-1">1. What is PaySphere?</h4>
                                         <p>PaySphere is a digital wallet application (like Google Pay or PayPal) that has an <strong>Artificial Intelligence (AI) Fraud Detector</strong> built-in. Every time money is transferred, AI checks if the transaction is safe or a scam!</p>
                                     </div>
 
-                                    <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 class="font-bold text-white mb-1">2. How to test it right now?</h4>
-                                        <ul class="list-disc pl-4 space-y-1">
+                                    <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
+                                        <h4 className="font-bold text-white mb-1">2. How to test it right now?</h4>
+                                        <ul className="list-disc pl-4 space-y-1">
                                             <li><strong>Tab 1 (Send Money)</strong>: Type a recipient name and amount, click <em>Send Money Now</em>.</li>
                                             <li><strong>Tab 2 (AI Fraud Slider)</strong>: Drag the sliders to see how high amounts and fast speeds raise the Fraud Risk Index!</li>
                                             <li><strong>Tab 3 (AI Chat)</strong>: Ask the chatbot questions like <em>"Why was my transfer flagged?"</em></li>
                                         </ul>
                                     </div>
 
-                                    <div class="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 class="font-bold text-white mb-1">3. How does AI calculate Fraud Risk?</h4>
+                                    <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
+                                        <h4 className="font-bold text-white mb-1">3. How does AI calculate Fraud Risk?</h4>
                                         <p>It checks 3 main factors:</p>
-                                        <ol class="list-decimal pl-4 space-y-0.5 mt-1">
+                                        <ol className="list-decimal pl-4 space-y-0.5 mt-1">
                                             <li><strong>Amount</strong>: Sending $5,000 is riskier than $20.</li>
                                             <li><strong>Speed (Velocity)</strong>: Sending 10 transfers in 1 minute looks like a bot attack.</li>
                                             <li><strong>Location Distance</strong>: Logging in from 500 km away triggers suspicion.</li>
                                         </ol>
                                     </div>
 
-                                    <div class="bg-purple-900/30 p-3.5 rounded-xl border border-purple-500/30 text-purple-200">
-                                        <h4 class="font-bold text-purple-300 mb-1">💡 Simple Viva Answer for Students:</h4>
+                                    <div className="bg-purple-900/30 p-3.5 rounded-xl border border-purple-500/30 text-purple-200">
+                                        <h4 className="font-bold text-purple-300 mb-1">💡 Simple Viva Answer for Students:</h4>
                                         <p><em>"PaySphere is a full-stack digital wallet built using React and Python FastAPI. It evaluates transaction risk in under 20 milliseconds using an Isolation Forest Machine Learning model."</em></p>
                                     </div>
                                 </div>
 
-                                <div class="pt-2">
-                                    <button onClick={() => setShowGuideModal(false)} class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl text-xs">
+                                <div className="pt-2">
+                                    <button onClick={() => setShowGuideModal(false)} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-xl text-xs">
                                         Got It! Close Guide
                                     </button>
                                 </div>
