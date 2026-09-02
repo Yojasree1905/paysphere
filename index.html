@@ -93,8 +93,10 @@
 
         function App() {
             const [user, setUser] = useState(() => {
-                const savedUser = localStorage.getItem("paysphere_user");
-                return savedUser ? JSON.parse(savedUser) : null;
+                try {
+                    const savedUser = localStorage.getItem("paysphere_user");
+                    return savedUser ? JSON.parse(savedUser) : null;
+                } catch(e) { return null; }
             });
             const [activeTab, setActiveTab] = useState('wallet');
             const [balance, setBalance] = useState(DEFAULT_BALANCE);
@@ -121,21 +123,25 @@
             };
 
             const saveDbUser = (identifier, password, extraData = {}) => {
+                const idKey = String(identifier).toLowerCase().trim();
                 const users = getDbUsers();
-                const currentBal = users[identifier.toLowerCase()]?.balance || DEFAULT_BALANCE;
-                users[identifier.toLowerCase()] = {
+                const currentBal = users[idKey]?.balance || DEFAULT_BALANCE;
+                users[idKey] = {
                     password: password,
                     balance: currentBal,
                     created_at: new Date().toISOString(),
                     ...extraData
                 };
-                localStorage.setItem("paysphere_registered_users", JSON.stringify(users));
+                try {
+                    localStorage.setItem("paysphere_registered_users", JSON.stringify(users));
+                } catch(e) {}
 
                 // Save user record to Cloud Firestore in background (non-blocking)
                 setTimeout(() => {
                     if (typeof db !== 'undefined' && db !== null) {
                         try {
-                            db.collection("users").doc(identifier.toLowerCase()).set({
+                            const cleanDocId = idKey.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+                            db.collection("users").doc(cleanDocId).set({
                                 identifier: identifier,
                                 password_hash: password,
                                 balance: currentBal,
@@ -151,21 +157,24 @@
             const saveUserBalanceToDatabase = (currentUser, newBal) => {
                 setBalance(newBal);
                 if (!currentUser) return;
-                const userId = (currentUser.uid || currentUser.email || "default").toLowerCase();
-                localStorage.setItem(`paysphere_balance_${userId}`, newBal.toString());
+                const userId = String(currentUser.uid || currentUser.email || "default").toLowerCase().trim();
+                try {
+                    localStorage.setItem(`paysphere_balance_${userId}`, newBal.toString());
+                } catch(e) {}
 
                 // Update in registered users map
                 const users = getDbUsers();
                 if (users[userId]) {
                     users[userId].balance = newBal;
-                    localStorage.setItem("paysphere_registered_users", JSON.stringify(users));
+                    try { localStorage.setItem("paysphere_registered_users", JSON.stringify(users)); } catch(e) {}
                 }
 
                 // Update in Cloud Firestore Database background
                 setTimeout(() => {
                     if (typeof db !== 'undefined' && db !== null) {
                         try {
-                            db.collection("users").doc(userId).set({ balance: newBal }, { merge: true }).catch(() => {});
+                            const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+                            db.collection("users").doc(cleanDocId).set({ balance: newBal }, { merge: true }).catch(() => {});
                         } catch (e) {}
                     }
                 }, 0);
@@ -174,46 +183,49 @@
             // Load balance & transactions from localStorage or Cloud Firestore on login
             const loadUserTransactions = (currentUser) => {
                 if (!currentUser) return;
-                const userId = (currentUser.uid || currentUser.email || "default").toLowerCase();
+                const userId = String(currentUser.uid || currentUser.email || "default").toLowerCase().trim();
 
                 // 1. Restore Balance
-                const savedBal = localStorage.getItem(`paysphere_balance_${userId}`);
-                if (savedBal !== null) {
-                    setBalance(parseFloat(savedBal));
-                } else {
-                    setBalance(DEFAULT_BALANCE);
-                }
+                try {
+                    const savedBal = localStorage.getItem(`paysphere_balance_${userId}`);
+                    if (savedBal !== null) {
+                        setBalance(parseFloat(savedBal));
+                    } else {
+                        setBalance(DEFAULT_BALANCE);
+                    }
+                } catch(e) { setBalance(DEFAULT_BALANCE); }
 
                 // 2. Restore Transactions
                 const userKey = `paysphere_txns_${userId}`;
-                const savedTxns = localStorage.getItem(userKey);
-                if (savedTxns) {
-                    try {
+                try {
+                    const savedTxns = localStorage.getItem(userKey);
+                    if (savedTxns) {
                         setTransactions(JSON.parse(savedTxns));
-                    } catch (e) {}
-                }
+                    }
+                } catch(e) {}
 
                 // Background Sync live balance & txns from Cloud Firestore
                 setTimeout(() => {
                     if (typeof db !== 'undefined' && db !== null) {
-                        db.collection("users").doc(userId).get()
+                        const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+                        db.collection("users").doc(cleanDocId).get()
                             .then(doc => {
                                 if (doc.exists && doc.data().balance !== undefined) {
                                     const dbBal = parseFloat(doc.data().balance);
                                     setBalance(dbBal);
-                                    localStorage.setItem(`paysphere_balance_${userId}`, dbBal.toString());
+                                    try { localStorage.setItem(`paysphere_balance_${userId}`, dbBal.toString()); } catch(e) {}
                                 }
                             })
                             .catch(() => {});
 
-                        db.collection("users").doc(userId).collection("transactions")
+                        db.collection("users").doc(cleanDocId).collection("transactions")
                             .orderBy("date", "desc")
                             .get()
                             .then(snapshot => {
                                 if (!snapshot.empty) {
                                     const dbTxns = snapshot.docs.map(doc => doc.data());
                                     setTransactions(dbTxns);
-                                    localStorage.setItem(userKey, JSON.stringify(dbTxns));
+                                    try { localStorage.setItem(userKey, JSON.stringify(dbTxns)); } catch(e) {}
                                 }
                             })
                             .catch(() => {});
@@ -221,7 +233,7 @@
                 }, 0);
             };
 
-            // Listen for Firebase Auth state changes
+            // Listen for API connection
             useEffect(() => {
                 fetch(`${API_BASE_URL}/api/v1/health`)
                     .then(res => res.json())
@@ -235,7 +247,7 @@
                 }
             }, []);
 
-            // INSTANT UNIFIED SIGN-IN / SIGN-UP FORM HANDLER (ZERO-DELAY FAST AUTH)
+            // UNIFIED SIGN-IN / SIGN-UP FORM HANDLER
             const handleUnifiedAuth = (e) => {
                 e.preventDefault();
                 setAuthMsg('');
@@ -258,37 +270,42 @@
                     const usersDb = getRegisteredUsers();
 
                     if (authMode === 'signup') {
+                        // Check if account already exists
                         if (usersDb[id]) {
-                            setAuthMsg("❌ Account already exists for this Email/Phone. Please Sign In!");
+                            setAuthMsg("❌ Account already exists for this Email/Phone. Please click 'Sign In'!");
                             setIsAuthProcessing(false);
                             return;
                         }
+                        
+                        // Register new user
                         saveDbUser(id, pwd);
-                        const uid = "USER-" + Math.abs(id.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0));
+                        const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
                         const uObj = { email: id, uid: uid };
+                        
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                         loadUserTransactions(uObj);
                         setIsAuthProcessing(false);
-                        return;
                     } else { // LOGIN MODE
+                        // Verify Password
                         if (usersDb[id] && usersDb[id].password !== pwd) {
-                            setAuthMsg("❌ Incorrect Password! Please check your credentials.");
+                            setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
                             setIsAuthProcessing(false);
                             return;
                         }
+
                         saveDbUser(id, pwd);
-                        const uid = "USER-" + Math.abs(id.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0));
+                        const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
                         const uObj = { email: id, uid: uid };
+                        
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                         loadUserTransactions(uObj);
                         setIsAuthProcessing(false);
-                        return;
                     }
                 } catch (err) {
                     console.error("Auth error:", err);
-                    setAuthMsg("❌ Authentication error. Please try again.");
+                    setAuthMsg(`❌ Registration notice: ${err.message || 'Please check input'}`);
                     setIsAuthProcessing(false);
                 }
             };
@@ -447,13 +464,13 @@
 
                 // Save transaction list to localStorage
                 const userKey = `paysphere_txns_${(user.uid || user.email).toLowerCase()}`;
-                localStorage.setItem(userKey, JSON.stringify(updatedTxns));
+                try { localStorage.setItem(userKey, JSON.stringify(updatedTxns)); } catch(e) {}
 
                 // Sync transaction to Cloud Firestore under authenticated user subcollection in background
                 setTimeout(() => {
                     if (typeof db !== 'undefined' && db !== null) {
                         try {
-                            const uId = (user.uid || user.email).toLowerCase();
+                            const uId = String(user.uid || user.email).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
                             db.collection("users").doc(uId).collection("transactions").doc(txnId).set(newTxn).catch(() => {});
                             db.collection("transactions").doc(txnId).set(newTxn).catch(() => {});
                         } catch (fsErr) {}
@@ -549,7 +566,7 @@
                                         type="text" 
                                         value={loginInput} 
                                         onChange={e => setLoginInput(e.target.value)} 
-                                        placeholder="vankireddi.s2023@vitstudent.ac.in or 9876543210" 
+                                        placeholder="yoju1907@gmail.com or 9876543210" 
                                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500" 
                                         required 
                                     />
