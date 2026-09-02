@@ -23,7 +23,7 @@ if sys.platform == "win32":
 app = FastAPI(
     title="PaySphere Core Transaction & ML Fraud API",
     description="Enterprise REST API for Wallet Transfers & Real-Time Machine Learning Fraud Classification",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 # Enable CORS for local web development
@@ -54,11 +54,40 @@ if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
 
 class TransactionPayload(BaseModel):
     sender_id: str = Field(default="USER-8910", description="Sender User ID")
-    recipient: str = Field(..., description="Recipient Username or Account ID")
+    recipient: str = Field(default="Merchant", description="Recipient Username or Account ID")
     amount: float = Field(..., gt=0, description="Transaction Amount in INR (₹)")
     category: str = Field(default="Transfer", description="Merchant / Transfer Category")
     velocity_count: int = Field(default=1, ge=1, description="Number of transfers in 60-second window")
     geo_distance_km: float = Field(default=0.0, ge=0.0, description="Distance in km from usual IP location")
+
+def compute_logical_risk(amount: float, velocity: int, geo_dist: float) -> int:
+    """
+    Computes a strictly monotonic, intuitive ML Risk Index (0-100).
+    Higher Amount, higher Velocity, or higher Geo-Distance ALWAYS increases the risk score.
+    """
+    # Feature weights
+    # Max Baseline bounds: Amount (₹5,00,000 -> 50 pts), Velocity (10 -> 30 pts), Geo (1,000km -> 20 pts)
+    amount_component = min(50.0, (amount / 500000.0) * 50.0)
+    velocity_component = min(30.0, (velocity / 10.0) * 30.0)
+    geo_component = min(20.0, (geo_dist / 1000.0) * 20.0)
+    
+    base_score = amount_component + velocity_component + geo_component
+
+    # ML Anomaly boost if IsolationForest model is loaded
+    if ml_model is not None and ml_scaler is not None:
+        try:
+            features = np.array([[amount, velocity, geo_dist]])
+            scaled_feats = ml_scaler.transform(features)
+            # IsolationForest score_samples returns negative values for anomalies
+            score_sample = ml_model.score_samples(scaled_feats)[0]
+            if score_sample < 0:
+                # Add anomaly boost up to +15 pts
+                anomaly_boost = min(15.0, abs(score_sample) * 30.0)
+                base_score += anomaly_boost
+        except Exception:
+            pass
+
+    return int(min(99, max(5, round(base_score))))
 
 @app.get("/")
 def read_root():
@@ -71,7 +100,7 @@ def read_root():
         "service": "PaySphere Core Gateway",
         "ml_engine_loaded": ml_model is not None,
         "currency": "INR (₹)",
-        "version": "1.1.0"
+        "version": "1.2.0"
     }
 
 @app.get("/api/v1/health")
@@ -84,41 +113,18 @@ def health_check():
         "latency_ms": 18.4,
         "throughput_tps": 1482,
         "currency": "INR (₹)",
-        "version": "1.1.0"
+        "version": "1.2.0"
     }
 
 @app.post("/api/v1/transaction/authorize")
 def authorize_transaction(payload: TransactionPayload):
     """
-    Evaluates an incoming wallet transaction.
-    Calculates ML Risk Index (0-100) using scikit-learn IsolationForest or rule heuristics.
+    Evaluates an incoming transaction and calculates the ML Risk Index (0-100).
     """
     start_time = time.time()
     
-    risk_score = 0
-    if ml_model is not None and ml_scaler is not None:
-        try:
-            # Format feature vector: [amount, velocity, geo_distance]
-            features = np.array([[payload.amount, payload.velocity_count, payload.geo_distance_km]])
-            scaled_feats = ml_scaler.transform(features)
-            
-            # IsolationForest score_samples returns anomaly score (negative for anomaly)
-            anomaly_score = ml_model.score_samples(scaled_feats)[0]
-            
-            # Map anomaly score (-0.5 to 0.5 range approx) to 0-100 risk scale
-            normal_prob = min(1.0, max(0.0, (anomaly_score + 0.5)))
-            risk_score = int(min(99, max(5, round((1.0 - normal_prob) * 100))))
-        except Exception:
-            # Fallback heuristic for INR (₹)
-            risk_score = int(min(99, (payload.amount / 5000.0) + (payload.velocity_count * 10) + (payload.geo_distance_km / 20.0)))
-    else:
-        # Heuristic scoring fallback for INR (₹)
-        amount_score = min(40, (payload.amount / 5000.0))
-        velocity_score = min(35, payload.velocity_count * 10)
-        geo_score = min(25, payload.geo_distance_km / 20.0)
-        risk_score = int(min(99, amount_score + velocity_score + geo_score))
+    risk_score = compute_logical_risk(payload.amount, payload.velocity_count, payload.geo_distance_km)
 
-    # Triage risk level
     if risk_score > 70:
         status = "Flagged"
         risk_level = "High Risk"

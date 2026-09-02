@@ -99,7 +99,7 @@
             const [mlAmount, setMlAmount] = useState('85000');
             const [mlVelocity, setMlVelocity] = useState('3');
             const [mlGeoDist, setMlGeoDist] = useState('120');
-            const [mlRiskScore, setMlRiskScore] = useState(42);
+            const [mlRiskScore, setMlRiskScore] = useState(22);
 
             // AI Chat State
             const [chatMessages, setChatMessages] = useState([
@@ -119,13 +119,17 @@
                     .catch(() => setApiConnected(false));
             }, []);
 
-            // Calculate ML Risk Score dynamically
-            const handleCalculateRisk = () => {
-                const amt = parseFloat(mlAmount) || 0;
-                const vel = parseInt(mlVelocity) || 1;
-                const geo = parseFloat(mlGeoDist) || 0;
+            // Calculate ML Risk Score dynamically (Strictly Monotonic: Higher Amount = Higher Risk)
+            const handleCalculateRisk = (newAmt, newVel, newGeo) => {
+                const amt = parseFloat(newAmt !== undefined ? newAmt : mlAmount) || 0;
+                const vel = parseInt(newVel !== undefined ? newVel : mlVelocity) || 1;
+                const geo = parseFloat(newGeo !== undefined ? newGeo : mlGeoDist) || 0;
 
-                let score = Math.min(100, Math.round((amt / 5000) + (vel * 12) + (geo / 15)));
+                const amountPts = Math.min(50, (amt / 500000) * 50);
+                const velPts = Math.min(30, (vel / 10) * 30);
+                const geoPts = Math.min(20, (geo / 1000) * 20);
+
+                let score = Math.min(99, Math.max(5, Math.round(amountPts + velPts + geoPts)));
                 setMlRiskScore(score);
             };
 
@@ -407,7 +411,7 @@
                                                 <span className="text-slate-300">1. Money Amount (₹ INR)</span>
                                                 <span className="text-purple-400">₹{parseInt(mlAmount).toLocaleString('en-IN')}</span>
                                             </div>
-                                            <input type="range" min="1000" max="500000" step="5000" value={mlAmount} onChange={e => { setMlAmount(e.target.value); handleCalculateRisk(); }} className="w-full accent-purple-500 bg-slate-900" />
+                                            <input type="range" min="1000" max="500000" step="5000" value={mlAmount} onChange={e => { setMlAmount(e.target.value); handleCalculateRisk(e.target.value, mlVelocity, mlGeoDist); }} className="w-full accent-purple-500 bg-slate-900" />
                                         </div>
 
                                         <div>
@@ -415,7 +419,7 @@
                                                 <span className="text-slate-300">2. Transfer Speed (Number of transfers in 60s)</span>
                                                 <span className="text-purple-400">{mlVelocity} transfers</span>
                                             </div>
-                                            <input type="range" min="1" max="10" value={mlVelocity} onChange={e => { setMlVelocity(e.target.value); handleCalculateRisk(); }} className="w-full accent-purple-500 bg-slate-900" />
+                                            <input type="range" min="1" max="10" value={mlVelocity} onChange={e => { setMlVelocity(e.target.value); handleCalculateRisk(mlAmount, e.target.value, mlGeoDist); }} className="w-full accent-purple-500 bg-slate-900" />
                                         </div>
 
                                         <div>
@@ -423,7 +427,7 @@
                                                 <span className="text-slate-300">3. Distance from Home Location (km)</span>
                                                 <span className="text-purple-400">{mlGeoDist} km</span>
                                             </div>
-                                            <input type="range" min="0" max="1000" step="10" value={mlGeoDist} onChange={e => { setMlGeoDist(e.target.value); handleCalculateRisk(); }} className="w-full accent-purple-500 bg-slate-900" />
+                                            <input type="range" min="0" max="1000" step="10" value={mlGeoDist} onChange={e => { setMlGeoDist(e.target.value); handleCalculateRisk(mlAmount, mlVelocity, e.target.value); }} className="w-full accent-purple-500 bg-slate-900" />
                                         </div>
                                     </div>
 
