@@ -109,24 +109,6 @@
             const [authMsg, setAuthMsg] = useState('');
             const [isAuthProcessing, setIsAuthProcessing] = useState(false);
 
-            // Send Money Form State
-            const [sendRecipient, setSendRecipient] = useState('');
-            const [sendAmount, setSendAmount] = useState('');
-            const [sendCategory, setSendCategory] = useState('Transfer');
-            const [isAuthorizing, setIsAuthorizing] = useState(false);
-
-            // ML Model Simulator State
-            const [mlAmount, setMlAmount] = useState('85000');
-            const [mlVelocity, setMlVelocity] = useState('3');
-            const [mlGeoDist, setMlGeoDist] = useState('120');
-            const [mlRiskScore, setMlRiskScore] = useState(62);
-
-            // AI Chat State
-            const [chatMessages, setChatMessages] = useState([
-                { sender: 'bot', text: '👋 Hi! I am your PaySphere AI Financial Assistant powered by Cloud Firestore. Ask me about your transactions or spending breakdowns!' }
-            ]);
-            const [chatInput, setChatInput] = useState('');
-
             // Persistent User Account Database helper
             const getDbUsers = () => {
                 const saved = localStorage.getItem("paysphere_registered_users");
@@ -203,7 +185,7 @@
                 }
             }, []);
 
-            // UNIFIED SIGN-IN / SIGN-UP FORM HANDLER
+            // INSTANT UNIFIED SIGN-IN / SIGN-UP FORM HANDLER
             const handleUnifiedAuth = async (e) => {
                 e.preventDefault();
                 setAuthMsg('');
@@ -222,37 +204,7 @@
 
                 setIsAuthProcessing(true);
 
-                // Check Firebase Auth if available
-                if (typeof auth !== 'undefined' && auth !== null && id.includes("@")) {
-                    try {
-                        if (authMode === 'signup') {
-                            const res = await auth.createUserWithEmailAndPassword(id, pwd);
-                            saveDbUser(id, pwd, { uid: res.user.uid });
-                            const uObj = { email: res.user.email, uid: res.user.uid };
-                            setUser(uObj);
-                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                            loadUserTransactions(uObj);
-                            setIsAuthProcessing(false);
-                            return;
-                        } else {
-                            const res = await auth.signInWithEmailAndPassword(id, pwd);
-                            const uObj = { email: res.user.email, uid: res.user.uid };
-                            setUser(uObj);
-                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                            loadUserTransactions(uObj);
-                            setIsAuthProcessing(false);
-                            return;
-                        }
-                    } catch (fbErr) {
-                        if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
-                            setAuthMsg("❌ Incorrect password! Please verify your password and try again.");
-                            setIsAuthProcessing(false);
-                            return;
-                        }
-                    }
-                }
-
-                // Strict Database Verification
+                // Check registered database immediately
                 const usersDb = getRegisteredUsers();
 
                 if (authMode === 'signup') {
@@ -268,17 +220,14 @@
                     localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                     loadUserTransactions(uObj);
                     setIsAuthProcessing(false);
-                    alert("🎉 Account created & saved to database successfully!");
-
+                    return;
                 } else { // LOGIN MODE
-                    if (!usersDb[id]) {
-                        // Create user for seamless testing or verify
-                        saveDbUser(id, pwd);
-                    } else if (usersDb[id].password !== pwd) {
+                    if (usersDb[id] && usersDb[id].password !== pwd) {
                         setAuthMsg("❌ Incorrect Password! Please check your credentials.");
                         setIsAuthProcessing(false);
                         return;
                     }
+                    saveDbUser(id, pwd);
                     const uid = "USER-" + Math.abs(id.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0));
                     const uObj = { email: id, uid: uid };
                     setUser(uObj);
@@ -288,7 +237,7 @@
                 }
             };
 
-            // GOOGLE SIGN-IN HANDLER (Opens Native Google Account Chooser)
+            // GOOGLE SIGN-IN HANDLER (Opens Native Google Account Chooser Popup)
             const handleGoogleAuth = async () => {
                 setAuthMsg('');
                 setIsAuthProcessing(true);
@@ -332,6 +281,24 @@
                 setUser(null);
                 localStorage.removeItem("paysphere_user");
             };
+
+            // Send Money Form State
+            const [sendRecipient, setSendRecipient] = useState('');
+            const [sendAmount, setSendAmount] = useState('');
+            const [sendCategory, setSendCategory] = useState('Transfer');
+            const [isAuthorizing, setIsAuthorizing] = useState(false);
+
+            // ML Model Simulator State
+            const [mlAmount, setMlAmount] = useState('85000');
+            const [mlVelocity, setMlVelocity] = useState('3');
+            const [mlGeoDist, setMlGeoDist] = useState('120');
+            const [mlRiskScore, setMlRiskScore] = useState(62);
+
+            // AI Chat State
+            const [chatMessages, setChatMessages] = useState([
+                { sender: 'bot', text: '👋 Hi! I am your PaySphere AI Financial Assistant powered by Cloud Firestore. Ask me about your transactions or spending breakdowns!' }
+            ]);
+            const [chatInput, setChatInput] = useState('');
 
             // Calculate ML Risk Score dynamically
             const handleCalculateRisk = (newAmt, newVel, newGeo) => {
@@ -542,7 +509,7 @@
                                     disabled={isAuthProcessing} 
                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm flex items-center justify-center space-x-2"
                                 >
-                                    <span>{isAuthProcessing ? 'Verifying Credentials...' : (authMode === 'signup' ? 'Create Account & Save to Database' : 'Sign In to PaySphere')}</span>
+                                    <span>{isAuthProcessing ? 'Verifying Credentials...' : (authMode === 'signup' ? 'Create Account & Enter Wallet' : 'Sign In to PaySphere')}</span>
                                     <Icon name="arrow-right" className="w-4 h-4" />
                                 </button>
                             </form>
@@ -910,13 +877,13 @@
 
                                 <div className="space-y-4 text-xs leading-relaxed text-slate-300">
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 className="font-bold text-white mb-1">1. Unified Single Auth Portal</h4>
-                                        <p>One unified tab supports Email, Mobile Phone, or Google Account sign-in/up seamlessly.</p>
+                                        <h4 className="font-bold text-white mb-1">1. Instant Authentication</h4>
+                                        <p>Verification completes instantly without network delay hanging.</p>
                                     </div>
 
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 className="font-bold text-white mb-1">2. Strict Password & Registration DB</h4>
-                                        <p>All registered details are saved to Cloud Firestore and verified strictly upon login. Wrong passwords are rejected.</p>
+                                        <h4 className="font-bold text-white mb-1">2. Persistent Database Ledger</h4>
+                                        <p>All transactions are saved to Cloud Firestore and restored automatically when logging out and logging back in.</p>
                                     </div>
                                 </div>
 
