@@ -1,8 +1,8 @@
 """
-PaySphere ML Engine — Machine Learning Model Trainer
----------------------------------------------------
+PaySphere ML Engine — Machine Learning Model Trainer (INR ₹ Version)
+------------------------------------------------------------------
 This script generates a synthetic dataset of transaction feature vectors:
-  1. Transaction Amount ($ USD)
+  1. Transaction Amount (₹ INR)
   2. Transaction Velocity (Count of transfers in 60s)
   3. Geo-Location Distance (Distance in km from usual IP location)
 
@@ -24,18 +24,18 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
 
 def train_fraud_detection_model():
-    print("[PaySphere ML] Generating synthetic transaction telemetry data...")
+    print("[PaySphere ML] Generating synthetic transaction telemetry data (INR ₹)...")
     np.random.seed(42)
 
-    # 1. Normal Transactions (95% of data)
+    # 1. Normal Transactions (95% of data: ₹500 - ₹15,000)
     n_normal = 1900
-    normal_amount = np.random.exponential(scale=45, size=n_normal) + 5
+    normal_amount = np.random.exponential(scale=4500, size=n_normal) + 500
     normal_velocity = np.random.poisson(lam=1.2, size=n_normal) + 1
     normal_geo_dist = np.random.exponential(scale=15, size=n_normal)
 
-    # 2. Fraudulent/Anomalous Transactions (5% of data)
+    # 2. Fraudulent/Anomalous Transactions (5% of data: ₹80,000 - ₹5,00,000)
     n_fraud = 100
-    fraud_amount = np.random.uniform(low=800, high=5000, size=n_fraud)
+    fraud_amount = np.random.uniform(low=80000, high=500000, size=n_fraud)
     fraud_velocity = np.random.randint(low=5, high=12, size=n_fraud)
     fraud_geo_dist = np.random.uniform(low=200, high=2500, size=n_fraud)
 

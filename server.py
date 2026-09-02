@@ -55,7 +55,7 @@ if os.path.exists(MODEL_PATH) and os.path.exists(SCALER_PATH):
 class TransactionPayload(BaseModel):
     sender_id: str = Field(default="USER-8910", description="Sender User ID")
     recipient: str = Field(..., description="Recipient Username or Account ID")
-    amount: float = Field(..., gt=0, description="Transaction Amount in USD")
+    amount: float = Field(..., gt=0, description="Transaction Amount in INR (₹)")
     category: str = Field(default="Transfer", description="Merchant / Transfer Category")
     velocity_count: int = Field(default=1, ge=1, description="Number of transfers in 60-second window")
     geo_distance_km: float = Field(default=0.0, ge=0.0, description="Distance in km from usual IP location")
@@ -70,6 +70,7 @@ def read_root():
         "status": "online",
         "service": "PaySphere Core Gateway",
         "ml_engine_loaded": ml_model is not None,
+        "currency": "INR (₹)",
         "version": "1.1.0"
     }
 
@@ -82,6 +83,7 @@ def health_check():
         "ml_engine_loaded": ml_model is not None,
         "latency_ms": 18.4,
         "throughput_tps": 1482,
+        "currency": "INR (₹)",
         "version": "1.1.0"
     }
 
@@ -107,11 +109,11 @@ def authorize_transaction(payload: TransactionPayload):
             normal_prob = min(1.0, max(0.0, (anomaly_score + 0.5)))
             risk_score = int(min(99, max(5, round((1.0 - normal_prob) * 100))))
         except Exception:
-            # Fallback heuristic
-            risk_score = int(min(99, (payload.amount / 50.0) + (payload.velocity_count * 10) + (payload.geo_distance_km / 20.0)))
+            # Fallback heuristic for INR (₹)
+            risk_score = int(min(99, (payload.amount / 5000.0) + (payload.velocity_count * 10) + (payload.geo_distance_km / 20.0)))
     else:
-        # Heuristic scoring fallback
-        amount_score = min(40, (payload.amount / 50.0))
+        # Heuristic scoring fallback for INR (₹)
+        amount_score = min(40, (payload.amount / 5000.0))
         velocity_score = min(35, payload.velocity_count * 10)
         geo_score = min(25, payload.geo_distance_km / 20.0)
         risk_score = int(min(99, amount_score + velocity_score + geo_score))
@@ -132,6 +134,7 @@ def authorize_transaction(payload: TransactionPayload):
     return {
         "transaction_id": f"TXN-{random.randint(10000, 99999)}",
         "amount": payload.amount,
+        "currency": "INR (₹)",
         "recipient": payload.recipient,
         "category": payload.category,
         "risk_score": risk_score,
