@@ -57,6 +57,16 @@
         const API_BASE_URL = 'http://localhost:8000';
         const DEFAULT_BALANCE = 500000.00; // ₹5,00,000 Initial Wallet Balance
 
+        // Top-level User Account Database helper
+        const getRegisteredUsers = () => {
+            try {
+                const saved = localStorage.getItem("paysphere_registered_users");
+                return saved ? JSON.parse(saved) : {};
+            } catch (e) {
+                return {};
+            }
+        };
+
         // Built-in Pure SVG Icons
         function Icon({ name, className = "w-4 h-4" }) {
             const icons = {
@@ -112,19 +122,9 @@
             const [authMsg, setAuthMsg] = useState('');
             const [isAuthProcessing, setIsAuthProcessing] = useState(false);
 
-            // Persistent User Account Database helper
-            const getDbUsers = () => {
-                try {
-                    const saved = localStorage.getItem("paysphere_registered_users");
-                    return saved ? JSON.parse(saved) : {};
-                } catch (e) {
-                    return {};
-                }
-            };
-
             const saveDbUser = (identifier, password, extraData = {}) => {
                 const idKey = String(identifier).toLowerCase().trim();
-                const users = getDbUsers();
+                const users = getRegisteredUsers();
                 const currentBal = users[idKey]?.balance || DEFAULT_BALANCE;
                 users[idKey] = {
                     password: password,
@@ -163,7 +163,7 @@
                 } catch(e) {}
 
                 // Update in registered users map
-                const users = getDbUsers();
+                const users = getRegisteredUsers();
                 if (users[userId]) {
                     users[userId].balance = newBal;
                     try { localStorage.setItem("paysphere_registered_users", JSON.stringify(users)); } catch(e) {}
@@ -320,7 +320,6 @@
                         saveDbUser(id, pwd);
                         const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
                         const uObj = { email: id, uid: uid };
-                        
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                         loadUserTransactions(uObj);
@@ -335,7 +334,6 @@
                         saveDbUser(id, pwd);
                         const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
                         const uObj = { email: id, uid: uid };
-                        
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                         loadUserTransactions(uObj);
@@ -433,17 +431,16 @@
                 setMlRiskScore(score);
             };
 
-            // Process New Peer-to-Peer Transfer & Deduct Balance in Database!
+            // SILENT INSTANT TRANSACTION AUTHORIZATION & SILENT DIRECT BALANCE DEDUCTION
             const handleSendMoney = async (e) => {
                 e.preventDefault();
                 const amt = parseFloat(sendAmount);
                 if (!sendRecipient || !amt || amt <= 0) {
-                    alert("Please enter a valid recipient and payment amount.");
                     return;
                 }
 
                 if (amt > balance) {
-                    alert(`❌ Insufficient Balance! Available: ₹${balance.toLocaleString('en-IN')}, Requested: ₹${amt.toLocaleString('en-IN')}`);
+                    alert(`❌ Insufficient Balance! Available: ₹${balance.toLocaleString('en-IN')}`);
                     return;
                 }
 
@@ -493,10 +490,10 @@
                     user_uid: user.uid
                 };
 
+                // SILENT DIRECT UPDATE: Add transaction & deduct balance instantly!
                 const updatedTxns = [newTxn, ...transactions];
                 setTransactions(updatedTxns);
 
-                // DEDUCT & SAVE UPDATED BALANCE TO DATABASE!
                 const newBalance = Math.max(0, balance - amt);
                 saveUserBalanceToDatabase(user, newBalance);
 
@@ -504,7 +501,7 @@
                 const userKey = `paysphere_txns_${(user.uid || user.email).toLowerCase()}`;
                 try { localStorage.setItem(userKey, JSON.stringify(updatedTxns)); } catch(e) {}
 
-                // Sync transaction to Cloud Firestore under authenticated user subcollection in background
+                // Sync transaction to Cloud Firestore in background
                 setTimeout(() => {
                     if (typeof db !== 'undefined' && db !== null) {
                         try {
@@ -518,8 +515,7 @@
                 setSendRecipient('');
                 setSendAmount('');
                 setIsAuthorizing(false);
-
-                alert(`🎉 Transaction Completed & Saved to Database!\n\nStatus: ${statusLabel}\nAmount Deducted: -₹${amt.toLocaleString('en-IN')}\nNew Database Balance: ₹${newBalance.toLocaleString('en-IN')}\nAI Risk Score: ${risk}/100 (${riskLabel})`);
+                // NO ALERT POPUP DISPLAYED! SILENT DIRECT UPDATE!
             };
 
             // Intelligent AI Chat Assistant
@@ -604,7 +600,7 @@
                                         type="text" 
                                         value={loginInput} 
                                         onChange={e => setLoginInput(e.target.value)} 
-                                        placeholder="yoju1907@gmail.com or 9876543210" 
+                                        placeholder="vankireddi.s2023@vitstudent.ac.in or 9876543210" 
                                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500" 
                                         required 
                                     />
@@ -995,8 +991,8 @@
 
                                 <div className="space-y-4 text-xs leading-relaxed text-slate-300">
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 className="font-bold text-white mb-1">1. Enabled Firebase Providers</h4>
-                                        <p>Email/Password, Phone Number, and Google Sign-In are active on paysphere-7be2b.</p>
+                                        <h4 className="font-bold text-white mb-1">1. Silent Direct Balance Updates</h4>
+                                        <p>Sending money updates your balance in real-time on screen & in Cloud Firestore without interrupting you with alert popups.</p>
                                     </div>
 
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
