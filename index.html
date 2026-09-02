@@ -117,8 +117,22 @@
             return formatISTDate({ timestamp: Date.now() });
         };
 
+        // SANITIZE ANY FUTURE-DATED MOCK ITEMS SO USER CREATED TRANSACTIONS ARE ALWAYS #1
+        const sanitizeHistoricalDates = (txns) => {
+            const now = Date.now();
+            return txns.map(t => {
+                let tTime = getTxnTime(t);
+                if (tTime > now && (t.id.startsWith("TXN-984") || t.id.startsWith("TXN-983"))) {
+                    const pastMs = now - (86400000 * 3);
+                    return { ...t, timestamp: pastMs, date: formatISTDate({ timestamp: pastMs }) };
+                }
+                return t;
+            });
+        };
+
         const sortTransactionsIST = (txnsList) => {
-            return [...txnsList].sort((a, b) => getTxnTime(b) - getTxnTime(a));
+            const sanitized = sanitizeHistoricalDates(txnsList);
+            return [...sanitized].sort((a, b) => getTxnTime(b) - getTxnTime(a));
         };
 
         const getRegisteredUsers = () => {
@@ -155,14 +169,13 @@
             );
         }
 
+        // HISTORICAL MOCK TRANSACTIONS IN THE PAST SO USER-MADE TRANSACTIONS ARE ALWAYS AT THE TOP
         const INITIAL_TRANSACTIONS = sortTransactionsIST([
-            { id: "TXN-98406", timestamp: new Date("2026-09-06T19:13:00+05:30").getTime(), date: "2026-09-06 19:13 IST", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 8 },
-            { id: "TXN-98405", timestamp: new Date("2026-09-05T18:47:00+05:30").getTime(), date: "2026-09-05 18:47 IST", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", riskProfile: "High Risk", securityStatus: "⚠️ High Risk (Flagged)", status: "Flagged", riskScore: 88 },
-            { id: "TXN-98404", timestamp: new Date("2026-09-04T17:36:00+05:30").getTime(), date: "2026-09-04 17:36 IST", recipient: "BlueStar Technologies", category: "Services", amount: 32000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 14 },
-            { id: "TXN-98403", timestamp: new Date("2026-09-03T16:25:00+05:30").getTime(), date: "2026-09-03 16:25 IST", recipient: "Horizon Real Estate", category: "Rent", amount: 45000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 18 },
-            { id: "TXN-98402", timestamp: new Date("2026-09-02T18:09:00+05:30").getTime(), date: "2026-09-02 18:09 IST", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 12 },
-            { id: "TXN-98401", timestamp: new Date("2026-09-02T17:16:00+05:30").getTime(), date: "2026-09-02 17:16 IST", recipient: "yoju1907@gmail.com", category: "Transfer", amount: 5000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 10 },
-            { id: "TXN-98398", timestamp: new Date("2026-08-31T19:20:00+05:30").getTime(), date: "2026-08-31 19:20 IST", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", riskProfile: "Medium Risk", securityStatus: "🔒 Medium Risk (2FA Verified)", status: "Completed", riskScore: 54 },
+            { id: "TXN-98406", timestamp: new Date("2026-09-01T19:13:00+05:30").getTime(), date: "2026-09-01 19:13 IST", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 8 },
+            { id: "TXN-98405", timestamp: new Date("2026-08-31T18:47:00+05:30").getTime(), date: "2026-08-31 18:47 IST", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", riskProfile: "High Risk", securityStatus: "⚠️ High Risk (Flagged)", status: "Flagged", riskScore: 88 },
+            { id: "TXN-98404", timestamp: new Date("2026-08-30T17:36:00+05:30").getTime(), date: "2026-08-30 17:36 IST", recipient: "BlueStar Technologies", category: "Services", amount: 32000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 14 },
+            { id: "TXN-98403", timestamp: new Date("2026-08-29T16:25:00+05:30").getTime(), date: "2026-08-29 16:25 IST", recipient: "Horizon Real Estate", category: "Rent", amount: 45000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 18 },
+            { id: "TXN-98402", timestamp: new Date("2026-08-28T18:09:00+05:30").getTime(), date: "2026-08-28 18:09 IST", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 12 },
         ]);
 
         function App() {
@@ -482,7 +495,7 @@
                 setTopUpNotice({ type: 'success', text: `Successfully added ₹${addAmt.toLocaleString('en-IN')} to your PaySphere wallet!` });
             };
 
-            // INITIATE TRANSACTION FLOW (PRESERVED HIGH/MEDIUM/LOW RISK PROFILES & TIMESTAMP SORTING)
+            // INITIATE TRANSACTION FLOW (GUARANTEED LATEST TIMESTAMP AT VERY TOP #1)
             const handleInitiatePayment = (e) => {
                 e.preventDefault();
                 setPaymentNotice(null);
