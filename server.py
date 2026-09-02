@@ -1,12 +1,13 @@
 """
 PaySphere Core Backend & ML Fraud Classification API
 ----------------------------------------------------
-FastAPI server serving digital wallet transaction authorizations, real-time ML fraud scoring,
-and telemetry analytics.
+FastAPI server serving the PaySphere Web Application, wallet transaction authorizations,
+real-time ML fraud scoring, and telemetry analytics.
 """
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 import random
 import time
@@ -35,7 +36,8 @@ app.add_middleware(
 )
 
 # Load trained ML Model & Scaler if available
-ML_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ml')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ML_DIR = os.path.join(BASE_DIR, 'ml')
 MODEL_PATH = os.path.join(ML_DIR, 'fraud_model.joblib')
 SCALER_PATH = os.path.join(ML_DIR, 'scaler.joblib')
 
@@ -60,7 +62,20 @@ class TransactionPayload(BaseModel):
 
 @app.get("/")
 def read_root():
-    """Health check and gateway status telemetry endpoint."""
+    """Serves the PaySphere visual web dashboard directly at http://localhost:8000/"""
+    index_path = os.path.join(BASE_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {
+        "status": "online",
+        "service": "PaySphere Core Gateway",
+        "ml_engine_loaded": ml_model is not None,
+        "version": "1.1.0"
+    }
+
+@app.get("/api/v1/health")
+def health_check():
+    """Health check & telemetry endpoint."""
     return {
         "status": "online",
         "service": "PaySphere Core Gateway",
@@ -89,7 +104,6 @@ def authorize_transaction(payload: TransactionPayload):
             anomaly_score = ml_model.score_samples(scaled_feats)[0]
             
             # Map anomaly score (-0.5 to 0.5 range approx) to 0-100 risk scale
-            # Lower score = higher anomaly probability
             normal_prob = min(1.0, max(0.0, (anomaly_score + 0.5)))
             risk_score = int(min(99, max(5, round((1.0 - normal_prob) * 100))))
         except Exception:
