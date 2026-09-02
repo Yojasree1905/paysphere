@@ -257,14 +257,14 @@
                 }
             }, []);
 
-            // UNIFIED SIGN-IN / SIGN-UP FORM HANDLER CONNECTED TO FIREBASE & DATABASE
+            // DIRECT FIREBASE AUTHENTICATION USER CREATION & LOGIN HANDLER
             const handleUnifiedAuth = async (e) => {
                 e.preventDefault();
                 setAuthMsg('');
-                const id = loginInput.trim().toLowerCase();
+                let rawId = loginInput.trim().toLowerCase();
                 const pwd = loginPassword;
 
-                if (!id || !pwd) {
+                if (!rawId || !pwd) {
                     setAuthMsg("❌ Please enter your Email or Phone Number and Password.");
                     return;
                 }
@@ -276,21 +276,27 @@
 
                 setIsAuthProcessing(true);
 
-                // Try Official Firebase Auth first if it's an email
-                if (typeof auth !== 'undefined' && auth !== null && id.includes('@')) {
+                // Convert phone format to email format if phone number entered
+                const emailId = rawId.includes('@') ? rawId : `${rawId}@paysphere.app`;
+
+                // ALWAYS DIRECTLY CALL FIREBASE AUTH SDK FOR USER TABLE REGISTRATION
+                if (typeof auth !== 'undefined' && auth !== null) {
                     try {
                         if (authMode === 'signup') {
-                            const res = await auth.createUserWithEmailAndPassword(id, pwd);
-                            saveDbUser(id, pwd, { uid: res.user.uid });
-                            const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Email Auth" };
+                            // CREATE NEW USER IN FIREBASE AUTHENTICATION CONSOLE!
+                            const res = await auth.createUserWithEmailAndPassword(emailId, pwd);
+                            saveDbUser(rawId, pwd, { uid: res.user.uid });
+                            const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                             loadUserTransactions(uObj);
                             setIsAuthProcessing(false);
                             return;
                         } else {
-                            const res = await auth.signInWithEmailAndPassword(id, pwd);
-                            const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Email Auth" };
+                            // SIGN IN EXISTING USER VIA FIREBASE AUTHENTICATION
+                            const res = await auth.signInWithEmailAndPassword(emailId, pwd);
+                            saveDbUser(rawId, pwd, { uid: res.user.uid });
+                            const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                             loadUserTransactions(uObj);
@@ -298,42 +304,52 @@
                             return;
                         }
                     } catch (fbErr) {
-                        if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
+                        console.warn("[Firebase Auth]", fbErr);
+
+                        if (fbErr.code === 'auth/email-already-in-use') {
+                            setAuthMsg("❌ Account already registered in Firebase! Please click 'Sign In'.");
+                            setIsAuthProcessing(false);
+                            return;
+                        } else if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
                             setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
+                            setIsAuthProcessing(false);
+                            return;
+                        } else if (fbErr.code === 'auth/user-not-found') {
+                            setAuthMsg("❌ Account not found in Firebase! Please click 'Sign Up' first.");
                             setIsAuthProcessing(false);
                             return;
                         }
                     }
                 }
 
-                // Database Local & Firestore Fallback Handler
+                // Fallback Local & Cloud Firestore Direct Register
                 try {
                     const usersDb = getRegisteredUsers();
 
                     if (authMode === 'signup') {
-                        if (usersDb[id]) {
+                        if (usersDb[rawId]) {
                             setAuthMsg("❌ Account already exists for this Email/Phone. Please click 'Sign In'!");
                             setIsAuthProcessing(false);
                             return;
                         }
                         
-                        saveDbUser(id, pwd);
-                        const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
-                        const uObj = { email: id, uid: uid };
+                        saveDbUser(rawId, pwd);
+                        const uid = "USER-" + Math.abs(rawId.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
+                        const uObj = { email: rawId, uid: uid };
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                         loadUserTransactions(uObj);
                         setIsAuthProcessing(false);
                     } else { // LOGIN MODE
-                        if (usersDb[id] && usersDb[id].password !== pwd) {
+                        if (usersDb[rawId] && usersDb[rawId].password !== pwd) {
                             setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
                             setIsAuthProcessing(false);
                             return;
                         }
 
-                        saveDbUser(id, pwd);
-                        const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
-                        const uObj = { email: id, uid: uid };
+                        saveDbUser(rawId, pwd);
+                        const uid = "USER-" + Math.abs(rawId.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
+                        const uObj = { email: rawId, uid: uid };
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
                         loadUserTransactions(uObj);
@@ -346,7 +362,7 @@
                 }
             };
 
-            // GOOGLE SIGN-IN HANDLER (Opens Official Google Accounts Popup Modal)
+            // GOOGLE SIGN-IN HANDLER (Opens Official Google Accounts Popup Modal & Registers in Firebase Auth)
             const handleGoogleAuth = async () => {
                 setAuthMsg('');
                 setIsAuthProcessing(true);
@@ -371,7 +387,7 @@
                 }
 
                 // Native Google Account Selector Prompt fallback
-                const selectedGoogleAccount = prompt("Select your Google Account:", "yoju1907@gmail.com");
+                const selectedGoogleAccount = prompt("Select your Google Account:", "vankireddi.s2023@vitstudent.ac.in");
                 if (selectedGoogleAccount) {
                     const gEmail = selectedGoogleAccount.trim().toLowerCase();
                     saveDbUser(gEmail, "GOOGLE_AUTH_TOKEN", { provider: "Google Account" });
@@ -515,7 +531,7 @@
                 setSendRecipient('');
                 setSendAmount('');
                 setIsAuthorizing(false);
-                // NO ALERT POPUP DISPLAYED! SILENT DIRECT UPDATE!
+                // SILENT DIRECT UPDATE COMPLETED!
             };
 
             // Intelligent AI Chat Assistant
@@ -623,7 +639,7 @@
                                     disabled={isAuthProcessing} 
                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm flex items-center justify-center space-x-2"
                                 >
-                                    <span>{isAuthProcessing ? 'Verifying Credentials...' : (authMode === 'signup' ? 'Create Account & Enter Wallet' : 'Sign In to PaySphere')}</span>
+                                    <span>{isAuthProcessing ? 'Verifying Credentials...' : (authMode === 'signup' ? 'Create Account & Register in Firebase' : 'Sign In to PaySphere')}</span>
                                     <Icon name="arrow-right" className="w-4 h-4" />
                                 </button>
                             </form>
@@ -991,8 +1007,8 @@
 
                                 <div className="space-y-4 text-xs leading-relaxed text-slate-300">
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 className="font-bold text-white mb-1">1. Silent Direct Balance Updates</h4>
-                                        <p>Sending money updates your balance in real-time on screen & in Cloud Firestore without interrupting you with alert popups.</p>
+                                        <h4 className="font-bold text-white mb-1">1. Direct Firebase Auth Users Table</h4>
+                                        <p>Every newly registered user is populated directly into your Firebase Console -> Authentication -> Users table!</p>
                                     </div>
 
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
