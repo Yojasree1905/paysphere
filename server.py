@@ -23,7 +23,7 @@ if sys.platform == "win32":
 app = FastAPI(
     title="PaySphere Core Transaction & ML Fraud API",
     description="Enterprise REST API for Wallet Transfers & Real-Time Machine Learning Fraud Classification",
-    version="1.3.0"
+    version="1.3.1"
 )
 
 # Enable CORS for local web development
@@ -57,7 +57,7 @@ class TransactionPayload(BaseModel):
     recipient: str = Field(default="Merchant", description="Recipient Username or Account ID")
     amount: float = Field(..., gt=0, description="Transaction Amount in INR (₹)")
     category: str = Field(default="Transfer", description="Merchant / Transfer Category")
-    velocity_count: int = Field(default=1, ge=1, description="Number of transfers in 60-second window")
+    velocity_count: int = Field(default=1, ge=1, description="Number of transfers in 1-hour window")
     geo_distance_km: float = Field(default=0.0, ge=0.0, description="Distance in km from usual IP location")
 
 def compute_logical_risk(amount: float, velocity: int, geo_dist: float, category: str = "Transfer") -> int:
@@ -68,8 +68,6 @@ def compute_logical_risk(amount: float, velocity: int, geo_dist: float, category
       - Large/Unusual transfers (₹75,000+ or ₹1 Lakh+): High Risk (75-98) -> Flagged / Blocked
       - Category Anomaly: High amounts on Dining/Shopping add extra anomaly risk penalty.
     """
-    # 1. Realistic Amount Component (Max 60 points)
-    # Thresholds: ₹10,000 -> 15 pts, ₹50,000 -> 35 pts, ₹1,00,000+ -> 55-60 pts
     if amount <= 5000:
         amount_score = (amount / 5000.0) * 15.0
     elif amount <= 50000:
@@ -77,13 +75,9 @@ def compute_logical_risk(amount: float, velocity: int, geo_dist: float, category
     else:
         amount_score = 35.0 + min(25.0, ((amount - 50000) / 50000.0) * 25.0)  # 35 to 60 pts
 
-    # 2. Velocity Component (Max 25 points)
     velocity_score = min(25.0, (velocity / 10.0) * 25.0)
-
-    # 3. Geo-Distance Component (Max 15 points)
     geo_score = min(15.0, (geo_dist / 1000.0) * 15.0)
 
-    # 4. Category Anomaly Penalty (Spending ₹50,000+ on Dining/Shopping is highly unusual!)
     category_penalty = 0.0
     if category.lower() in ["dining", "shopping"] and amount > 25000:
         category_penalty = 20.0
@@ -92,7 +86,6 @@ def compute_logical_risk(amount: float, velocity: int, geo_dist: float, category
 
     base_score = amount_score + velocity_score + geo_score + category_penalty
 
-    # 5. ML Anomaly Model Boost
     if ml_model is not None and ml_scaler is not None:
         try:
             features = np.array([[amount, velocity, geo_dist]])
@@ -116,7 +109,7 @@ def read_root():
         "service": "PaySphere Core Gateway",
         "ml_engine_loaded": ml_model is not None,
         "currency": "INR (₹)",
-        "version": "1.3.0"
+        "version": "1.3.1"
     }
 
 @app.get("/api/v1/health")
@@ -129,7 +122,7 @@ def health_check():
         "latency_ms": 18.4,
         "throughput_tps": 1482,
         "currency": "INR (₹)",
-        "version": "1.3.0"
+        "version": "1.3.1"
     }
 
 @app.post("/api/v1/transaction/authorize")

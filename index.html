@@ -226,7 +226,7 @@
                     } else if (lower.includes("spend") || lower.includes("predict")) {
                         reply = "Based on your recent transfers, your estimated spending for next week is ₹32,000.00.";
                     } else if (lower.includes("how") || lower.includes("work")) {
-                        reply = "PaySphere evaluates transactions using a Machine Learning algorithm (Isolation Forest) looking at 3 things: Amount (₹), Transfer Speed (Velocity), and Location Distance (km).";
+                        reply = "PaySphere evaluates transactions using a Machine Learning algorithm (Isolation Forest) looking at 3 things: Amount (₹), Transfer Speed (Velocity in 1 hour), and Location Distance (km).";
                     }
 
                     setChatMessages([...updated, { sender: 'bot', text: reply }]);
@@ -420,7 +420,7 @@
 
                                         <div>
                                             <div className="flex justify-between text-xs font-semibold mb-1">
-                                                <span className="text-slate-300">2. Transfer Speed (Number of transfers in 60s)</span>
+                                                <span className="text-slate-300">2. Transfer Speed (Number of transfers in 1 hour)</span>
                                                 <span className="text-purple-400">{mlVelocity} transfers</span>
                                             </div>
                                             <input type="range" min="1" max="10" value={mlVelocity} onChange={e => { setMlVelocity(e.target.value); handleCalculateRisk(mlAmount, e.target.value, mlGeoDist); }} className="w-full accent-purple-500 bg-slate-900" />
@@ -460,7 +460,7 @@
 
                                         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
                                             <div className="font-bold text-white mb-1 text-sm">⚡ Speed & Frequency</div>
-                                            <p className="text-slate-400">Sending 10 payments in 1 minute looks like a bot or hacker script.</p>
+                                            <p className="text-slate-400">Sending 10 payments within 1 hour looks like a bot attack or automated scam.</p>
                                         </div>
 
                                         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800">
@@ -594,7 +594,7 @@
                                         <p>It checks 3 main factors:</p>
                                         <ol className="list-decimal pl-4 space-y-0.5 mt-1">
                                             <li><strong>Amount (₹)</strong>: Sending ₹1,00,000+ is riskier than ₹200.</li>
-                                            <li><strong>Speed (Velocity)</strong>: Sending 10 transfers in 1 minute looks like a bot attack.</li>
+                                            <li><strong>Speed (Velocity)</strong>: Sending 10 transfers in 1 hour looks like a bot attack.</li>
                                             <li><strong>Location Distance</strong>: Logging in from 500 km away triggers suspicion.</li>
                                         </ol>
                                     </div>
