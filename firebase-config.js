@@ -1,28 +1,31 @@
 /**
- * PaySphere Firebase & Cloud Firestore Configuration
- * --------------------------------------------------
- * Replace the placeholder values below with your Firebase Project keys:
- * https://console.firebase.google.com/
+ * PaySphere Firebase, Auth & Cloud Firestore Configuration
+ * ---------------------------------------------------------
+ * Target Firebase Project: paysphere-7be2b
  */
 const firebaseConfig = {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "paysphere-app.firebaseapp.com",
-    projectId: "paysphere-app",
-    storageBucket: "paysphere-app.appspot.com",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdef1234567890"
+  apiKey: "AIzaSyBoCcFd7IWpl3Z0L1P3iJ1csMQbYWrPOWI",
+  authDomain: "paysphere-7be2b.firebaseapp.com",
+  projectId: "paysphere-7be2b",
+  storageBucket: "paysphere-7be2b.firebasestorage.app",
+  messagingSenderId: "78446401809",
+  appId: "1:78446401809:web:2a192e1fbf0753a66314b0",
+  measurementId: "G-71TW0HTWFB"
 };
 
-// Initialize Firebase if Firebase SDK is present
+// Initialize Firebase App, Auth & Firestore
 let db = null;
+let auth = null;
+
 if (typeof firebase !== 'undefined') {
     try {
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
         db = firebase.firestore();
-        print("[PaySphere Firebase] Connected to Cloud Firestore successfully.");
+        auth = firebase.auth();
+        console.log("[PaySphere Firebase] Connected to Firebase Auth & Cloud Firestore (paysphere-7be2b).");
     } catch (e) {
-        console.warn("[PaySphere Firebase] Demo mode running without active Firebase credentials.", e);
+        console.warn("[PaySphere Firebase] Error initializing Firebase:", e);
     }
 }
