@@ -1,6 +1,6 @@
 /**
- * PaySphere Firebase, Auth & Cloud Firestore Configuration
- * ---------------------------------------------------------
+ * PaySphere Firebase, Auth, Firestore & Realtime Database Configuration
+ * ----------------------------------------------------------------------
  * Target Firebase Project: paysphere-7be2b
  */
 const firebaseConfig = {
@@ -13,9 +13,11 @@ const firebaseConfig = {
   measurementId: "G-71TW0HTWFB"
 };
 
-// Initialize Firebase App, Auth & Firestore
+// Initialize Firebase Services
 let db = null;
 let auth = null;
+let rtdb = null;
+let analytics = null;
 
 if (typeof firebase !== 'undefined') {
     try {
@@ -24,8 +26,15 @@ if (typeof firebase !== 'undefined') {
         }
         db = firebase.firestore();
         auth = firebase.auth();
-        console.log("[PaySphere Firebase] Connected to Firebase Auth & Cloud Firestore (paysphere-7be2b).");
+
+        if (typeof firebase.database === 'function') {
+            rtdb = firebase.database();
+        }
+        if (typeof firebase.analytics === 'function') {
+            analytics = firebase.analytics();
+        }
+        console.log("[PaySphere Firebase] Connected to Firebase Auth, Cloud Firestore, Realtime Database & Analytics (paysphere-7be2b).");
     } catch (e) {
-        console.warn("[PaySphere Firebase] Error initializing Firebase:", e);
+        console.warn("[PaySphere Firebase] Error initializing Firebase services:", e);
     }
 }
