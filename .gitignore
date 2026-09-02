@@ -1,0 +1,21 @@
+# Python bytecode & virtualenv
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+ENV/
+.venv
+
+# ML Model Cache Artifacts (Optional - model generator will recreate them)
+# ml/*.joblib
+
+# OS & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment secrets
+.env
+*.log
