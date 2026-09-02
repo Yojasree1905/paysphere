@@ -526,6 +526,7 @@
                 const priorTotalAmt = recentSameRecipientTxns.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
                 const cumulativeAmt = priorTotalAmt + amt;
 
+                const isMicroPayment = amt < 1000;
                 const isVeryHighAmount = amt >= 5000000; // >= 50 Lakhs single transfer
                 const isMediumAmount = amt >= 50000;    // >= 50k single transfer
                 const isWire = transferType === 'Bank Wire';
@@ -535,30 +536,30 @@
                 let txnStatus = "Completed";
                 let calculatedScore = 12;
 
+                // MICRO-PAYMENTS EXEMPTION (< ₹1,000)
+                if (isMicroPayment && cumulativeAmt < 100000 && !isWire) {
+                    riskProf = "Low Risk";
+                    secStatus = "✅ Low Risk (Instant Micro-Pay)";
+                    calculatedScore = 5;
+                }
                 // HIGH RISK CONDITIONS:
-                // 1. Single massive transfer >= ₹5,000,000 (50 Lakhs)
-                // 2. High Velocity Attack: 5 or more rapid transfers to the same recipient within 1 hour
-                // 3. High Cumulative Burst: Cumulative amount to same recipient in 1 hour exceeds ₹500,000 AND repeatCount >= 2
-                if (isVeryHighAmount || repeatCount >= 4 || (repeatCount >= 2 && cumulativeAmt >= 500000)) {
+                else if (isVeryHighAmount || repeatCount >= 4 || (repeatCount >= 2 && cumulativeAmt >= 500000)) {
                     riskProf = "High Risk";
                     secStatus = `⚠️ High Risk (Flagged / High Velocity Transfer #${repeatCount + 1})`;
                     txnStatus = "Flagged";
                     calculatedScore = 92;
                 } 
                 // MEDIUM RISK CONDITIONS:
-                // 1. Amount >= ₹50,000 or Bank Wire transfer
-                // 2. 3rd or 4th repeat transfer to same recipient (repeatCount >= 2)
-                // 3. Cumulative amount to same recipient in 1 hour exceeds ₹100,000
-                else if (isMediumAmount || isWire || repeatCount >= 2 || cumulativeAmt >= 100000) {
+                else if (isMediumAmount || isWire || cumulativeAmt >= 100000) {
                     riskProf = "Medium Risk";
-                    if (repeatCount >= 2 || cumulativeAmt >= 100000) {
-                        secStatus = `🔒 Medium Risk (2FA / Repeat Transfer #${repeatCount + 1})`;
+                    if (cumulativeAmt >= 100000) {
+                        secStatus = `🔒 Medium Risk (2FA / High Cumulative Volume)`;
                     } else {
                         secStatus = "🔒 Medium Risk (2FA Verified)";
                     }
                     calculatedScore = 65;
                 }
-                // LOW RISK: Routine smaller transfers (e.g. 1st or 2nd transfer of ₹3,000 to same person)
+                // DEFAULT LOW RISK
                 else {
                     riskProf = "Low Risk";
                     secStatus = "✅ Low Risk (Verified)";
