@@ -81,6 +81,24 @@
         const API_BASE_URL = 'http://localhost:8000';
         const DEFAULT_BALANCE = 500000.00;
 
+        // Indian Standard Time (IST) Formatter
+        const getIndianTimestamp = () => {
+            const now = new Date();
+            const options = {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            };
+            const parts = new Intl.DateTimeFormat('en-CA', options).formatToParts(now);
+            const hash = {};
+            parts.forEach(p => hash[p.type] = p.value);
+            return `${hash.year}-${hash.month}-${hash.day} ${hash.hour}:${hash.minute} IST`;
+        };
+
         const getRegisteredUsers = () => {
             try {
                 const saved = localStorage.getItem("paysphere_registered_users");
@@ -116,11 +134,11 @@
         }
 
         const INITIAL_TRANSACTIONS = [
-            { id: "TXN-98402", date: "2026-09-02 18:32", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 12 },
-            { id: "TXN-98401", date: "2026-09-02 14:15", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", securityStatus: "⚠️ High Risk / Flagged", status: "Flagged", riskScore: 88 },
-            { id: "TXN-98400", date: "2026-09-01 20:05", recipient: "Stripe Enterprise Payout", category: "Income", amount: 120000.00, type: "Credit", securityStatus: "Verified", status: "Completed", riskScore: 5 },
-            { id: "TXN-98399", date: "2026-09-01 13:40", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 8 },
-            { id: "TXN-98398", date: "2026-08-31 19:20", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", securityStatus: "🔒 2FA Verified (Medium Risk)", status: "Completed", riskScore: 54 },
+            { id: "TXN-98402", date: "2026-09-02 23:32 IST", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 12 },
+            { id: "TXN-98401", date: "2026-09-02 19:15 IST", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", securityStatus: "⚠️ High Risk / Flagged", status: "Flagged", riskScore: 88 },
+            { id: "TXN-98400", date: "2026-09-01 20:05 IST", recipient: "Stripe Enterprise Payout", category: "Income", amount: 120000.00, type: "Credit", securityStatus: "Verified", status: "Completed", riskScore: 5 },
+            { id: "TXN-98399", date: "2026-09-01 13:40 IST", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 8 },
+            { id: "TXN-98398", date: "2026-08-31 19:20 IST", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", securityStatus: "🔒 2FA Verified (Medium Risk)", status: "Completed", riskScore: 54 },
         ];
 
         function App() {
@@ -193,8 +211,8 @@
                         uid: uId,
                         email: emailStr,
                         balance: balance || DEFAULT_BALANCE,
-                        created_at: new Date().toISOString(),
-                        last_active: new Date().toISOString()
+                        created_at: getIndianTimestamp(),
+                        last_active: getIndianTimestamp()
                     }, { merge: true }).catch(err => console.error("[Firestore Error]", err));
 
                     initialTxns.forEach(t => {
@@ -216,7 +234,7 @@
                 if (typeof db !== 'undefined' && db !== null) {
                     db.collection("users").doc(cleanDocId).set({
                         balance: newBal,
-                        last_updated: new Date().toISOString()
+                        last_updated: getIndianTimestamp()
                     }, { merge: true }).catch(() => {});
                 }
 
@@ -227,6 +245,7 @@
                 }
             };
 
+            // REAL-TIME FIRESTORE LISTENER & DATA SYNC ORDERED BY IST TIMESTAMP
             useEffect(() => {
                 if (!user) return;
                 const userId = String(user.uid || user.email || "default").toLowerCase().trim();
@@ -240,7 +259,11 @@
                     if (savedBal !== null) setBalance(parseFloat(savedBal));
 
                     const savedTxns = localStorage.getItem(userKey);
-                    if (savedTxns) setTransactions(JSON.parse(savedTxns));
+                    if (savedTxns) {
+                        const parsed = JSON.parse(savedTxns);
+                        parsed.sort((a, b) => b.date.localeCompare(a.date));
+                        setTransactions(parsed);
+                    }
                 } catch(e) {}
 
                 if (typeof db !== 'undefined' && db !== null) {
@@ -257,6 +280,7 @@
                         .onSnapshot(snapshot => {
                             if (!snapshot.empty) {
                                 const dbTxns = snapshot.docs.map(doc => doc.data());
+                                dbTxns.sort((a, b) => b.date.localeCompare(a.date));
                                 setTransactions(dbTxns);
                                 try { localStorage.setItem(userKey, JSON.stringify(dbTxns)); } catch(e) {}
                             }
@@ -410,7 +434,7 @@
                 const txnId = `TOPUP-${Math.floor(10000 + Math.random() * 90000)}`;
                 const topUpTxn = {
                     id: txnId,
-                    date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                    date: getIndianTimestamp(),
                     recipient: `Deposit via ${topUpSource}`,
                     category: "Wallet Top-Up",
                     amount: addAmt,
@@ -422,6 +446,7 @@
                 };
 
                 const updatedTxns = [topUpTxn, ...transactions];
+                updatedTxns.sort((a, b) => b.date.localeCompare(a.date));
                 setTransactions(updatedTxns);
 
                 if (typeof db !== 'undefined' && db !== null) {
@@ -434,7 +459,7 @@
                 setTopUpNotice({ type: 'success', text: `Successfully added ₹${addAmt.toLocaleString('en-IN')} to your PaySphere wallet!` });
             };
 
-            // INITIATE TRANSACTION FLOW
+            // INITIATE TRANSACTION FLOW (STRICT IST TIMESTAMP GENERATION)
             const handleInitiatePayment = (e) => {
                 e.preventDefault();
                 setPaymentNotice(null);
@@ -459,14 +484,13 @@
                 const isHighAmount = amt >= 50000;
                 const isWire = transferType === 'Bank Wire';
 
-                // DISTINCT SECURITY RISK BADGES (2FA DOES NOT MAKE IT A GREEN PLAIN VERIFIED BADGE!)
                 const secStatus = isHighAmount || isWire 
                     ? "🔒 2FA Verified (Medium Risk)" 
                     : "Verified";
 
                 const newTxnData = {
                     id: txnId,
-                    date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                    date: getIndianTimestamp(),
                     recipient: recipient,
                     category: category,
                     amount: amt,
@@ -492,6 +516,7 @@
 
             const executeFinalPayment = (txnData) => {
                 const updatedTxns = [txnData, ...transactions];
+                updatedTxns.sort((a, b) => b.date.localeCompare(a.date));
                 setTransactions(updatedTxns);
 
                 const newBal = Math.max(0, balance - txnData.amount);
@@ -510,7 +535,7 @@
                 if (typeof rtdb !== 'undefined' && rtdb !== null) {
                     try {
                         rtdb.ref(`security_logs/${cleanDocId}/${txnData.id}`).set({
-                            timestamp: new Date().toISOString(),
+                            timestamp: getIndianTimestamp(),
                             amount: txnData.amount,
                             recipient: txnData.recipient,
                             securityStatus: txnData.securityStatus
@@ -799,7 +824,7 @@
                                 <div className="lg:col-span-2 glass-panel p-6 rounded-2xl">
                                     <div className="flex items-center justify-between mb-6">
                                         <div>
-                                            <h3 className="text-base font-bold text-white">Recent Transactions</h3>
+                                            <h3 className="text-base font-bold text-white">Recent Transactions (IST Chronological Order)</h3>
                                         </div>
                                     </div>
 

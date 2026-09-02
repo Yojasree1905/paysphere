@@ -35,7 +35,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load trained ML Model & Scaler if available
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ML_DIR = os.path.join(BASE_DIR, 'ml')
 MODEL_PATH = os.path.join(ML_DIR, 'fraud_model.joblib')
@@ -61,19 +60,12 @@ class TransactionPayload(BaseModel):
     geo_distance_km: float = Field(default=0.0, ge=0.0, description="Distance in km from usual IP location")
 
 def compute_logical_risk(amount: float, velocity: int, geo_dist: float, category: str = "Transfer") -> int:
-    """
-    Realistic Fintech Risk Calculator for Indian Rupee (₹) Transactions:
-      - Small everyday transfers (₹100 - ₹5,000): Low Risk (10-30) -> Auto-Approved
-      - Moderate transfers (₹10,000 - ₹50,000): Medium Risk (45-65) -> Requires 2FA
-      - Large/Unusual transfers (₹75,000+ or ₹1 Lakh+): High Risk (75-98) -> Flagged / Blocked
-      - Category Anomaly: High amounts on Dining/Shopping add extra anomaly risk penalty.
-    """
     if amount <= 5000:
         amount_score = (amount / 5000.0) * 15.0
     elif amount <= 50000:
-        amount_score = 15.0 + ((amount - 5000) / 45000.0) * 20.0  # 15 to 35 pts
+        amount_score = 15.0 + ((amount - 5000) / 45000.0) * 20.0
     else:
-        amount_score = 35.0 + min(25.0, ((amount - 50000) / 50000.0) * 25.0)  # 35 to 60 pts
+        amount_score = 35.0 + min(25.0, ((amount - 50000) / 50000.0) * 25.0)
 
     velocity_score = min(25.0, (velocity / 10.0) * 25.0)
     geo_score = min(15.0, (geo_dist / 1000.0) * 15.0)
@@ -100,7 +92,6 @@ def compute_logical_risk(amount: float, velocity: int, geo_dist: float, category
 
 @app.get("/")
 def read_root():
-    """Serves the PaySphere visual web dashboard directly at http://localhost:8000/"""
     index_path = os.path.join(BASE_DIR, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -112,9 +103,15 @@ def read_root():
         "version": "1.3.1"
     }
 
+@app.get("/firebase-config.js")
+def read_firebase_config():
+    config_path = os.path.join(BASE_DIR, "firebase-config.js")
+    if os.path.exists(config_path):
+        return FileResponse(config_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="File not found")
+
 @app.get("/api/v1/health")
 def health_check():
-    """Health check & telemetry endpoint."""
     return {
         "status": "online",
         "service": "PaySphere Core Gateway",
@@ -127,11 +124,7 @@ def health_check():
 
 @app.post("/api/v1/transaction/authorize")
 def authorize_transaction(payload: TransactionPayload):
-    """
-    Evaluates an incoming transaction and calculates the ML Risk Index (0-100).
-    """
     start_time = time.time()
-    
     risk_score = compute_logical_risk(payload.amount, payload.velocity_count, payload.geo_distance_km, payload.category)
 
     if risk_score > 70:
