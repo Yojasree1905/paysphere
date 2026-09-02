@@ -82,14 +82,52 @@
         const DEFAULT_BALANCE = 500000.00;
 
         // ACCURATE TIME PARSER & IST FORMATTER FOR CHRONOLOGICAL SORTING
+        const parseFlexibleISTDate = (rawValue) => {
+            if (!rawValue && rawValue !== 0) return null;
+            if (typeof rawValue === 'number' && !Number.isNaN(rawValue)) return new Date(rawValue);
+
+            const value = String(rawValue).trim();
+            if (!value) return null;
+
+            const isoLike = value.replace(/\s*IST\s*$/i, '').replace(/\s+/g, ' ');
+
+            const isoMatch = isoLike.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (isoMatch) {
+                const [, y, mo, d, h, mi] = isoMatch;
+                return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(isoMatch[6] || 0));
+            }
+
+            const dayMonthYearMatch = isoLike.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}),\s*(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+            if (dayMonthYearMatch) {
+                const [, day, mon, year, hour, minute, meridiem] = dayMonthYearMatch;
+                const monthMap = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+                let hourNum = Number(hour);
+                if (/pm/i.test(meridiem) && hourNum < 12) hourNum += 12;
+                if (/am/i.test(meridiem) && hourNum === 12) hourNum = 0;
+                return new Date(Number(year), monthMap[mon], Number(day), hourNum, Number(minute));
+            }
+
+            const compactMatch = isoLike.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+            if (compactMatch) {
+                const [, y, mo, d, h, mi, meridiem] = compactMatch;
+                let hourNum = Number(h);
+                if (/pm/i.test(meridiem) && hourNum < 12) hourNum += 12;
+                if (/am/i.test(meridiem) && hourNum === 12) hourNum = 0;
+                return new Date(Number(y), Number(mo) - 1, Number(d), hourNum, Number(mi));
+            }
+
+            const parsed = Date.parse(isoLike);
+            return Number.isNaN(parsed) ? null : new Date(parsed);
+        };
+
         const getTxnTime = (item) => {
-            if (item && item.timestamp && !isNaN(item.timestamp)) {
+            if (!item) return 0;
+            if (item.timestamp && !isNaN(item.timestamp)) {
                 return Number(item.timestamp);
             }
-            if (item && item.date) {
-                const cleanDateStr = String(item.date).replace(" IST", "");
-                const parsed = Date.parse(cleanDateStr);
-                if (!isNaN(parsed)) return parsed;
+            const parsedDate = parseFlexibleISTDate(item.date);
+            if (parsedDate && !Number.isNaN(parsedDate.getTime())) {
+                return parsedDate.getTime();
             }
             return 0;
         };
@@ -117,22 +155,37 @@
             return formatISTDate({ timestamp: Date.now() });
         };
 
-        // SANITIZE ANY FUTURE-DATED MOCK ITEMS SO USER CREATED TRANSACTIONS ARE ALWAYS #1
+        // AUTOMATIC FUTURE-DATE SANITIZER: SHIFTS ANY OLD FUTURE-DATED DOCUMENTS INTO THE PAST
         const sanitizeHistoricalDates = (txns) => {
-            const now = Date.now();
+            const nowMs = Date.now();
             return txns.map(t => {
                 let tTime = getTxnTime(t);
-                if (tTime > now && (t.id.startsWith("TXN-984") || t.id.startsWith("TXN-983"))) {
-                    const pastMs = now - (86400000 * 3);
-                    return { ...t, timestamp: pastMs, date: formatISTDate({ timestamp: pastMs }) };
+                // If transaction date is in the future (> 1 min from now), shift it to the past
+                if (tTime > nowMs + 60000) {
+                    const pastMs = nowMs - (86400000 * 5) - Math.abs(tTime % (86400000 * 3));
+                    return { 
+                        ...t, 
+                        timestamp: pastMs, 
+                        date: formatISTDate({ timestamp: pastMs }) 
+                    };
                 }
-                return t;
+                return {
+                    ...t,
+                    timestamp: tTime,
+                    date: formatISTDate({ timestamp: tTime })
+                };
             });
         };
 
         const sortTransactionsIST = (txnsList) => {
-            const sanitized = sanitizeHistoricalDates(txnsList);
-            return [...sanitized].sort((a, b) => getTxnTime(b) - getTxnTime(a));
+            const sanitized = sanitizeHistoricalDates(txnsList).map(item => {
+                const safeTimestamp = getTxnTime(item);
+                return {
+                    ...item,
+                    timestamp: safeTimestamp || Date.now() - (Math.random() * 60000)
+                };
+            });
+            return [...sanitized].sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
         };
 
         const getRegisteredUsers = () => {
@@ -169,13 +222,13 @@
             );
         }
 
-        // HISTORICAL MOCK TRANSACTIONS IN THE PAST SO USER-MADE TRANSACTIONS ARE ALWAYS AT THE TOP
+        // PAST MOCK DATA
         const INITIAL_TRANSACTIONS = sortTransactionsIST([
-            { id: "TXN-98406", timestamp: new Date("2026-09-01T19:13:00+05:30").getTime(), date: "2026-09-01 19:13 IST", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 8 },
-            { id: "TXN-98405", timestamp: new Date("2026-08-31T18:47:00+05:30").getTime(), date: "2026-08-31 18:47 IST", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", riskProfile: "High Risk", securityStatus: "⚠️ High Risk (Flagged)", status: "Flagged", riskScore: 88 },
-            { id: "TXN-98404", timestamp: new Date("2026-08-30T17:36:00+05:30").getTime(), date: "2026-08-30 17:36 IST", recipient: "BlueStar Technologies", category: "Services", amount: 32000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 14 },
-            { id: "TXN-98403", timestamp: new Date("2026-08-29T16:25:00+05:30").getTime(), date: "2026-08-29 16:25 IST", recipient: "Horizon Real Estate", category: "Rent", amount: 45000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 18 },
-            { id: "TXN-98402", timestamp: new Date("2026-08-28T18:09:00+05:30").getTime(), date: "2026-08-28 18:09 IST", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 12 },
+            { id: "TXN-98406", timestamp: new Date("2026-08-28T19:13:00+05:30").getTime(), date: "2026-08-28 19:13 IST", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 8 },
+            { id: "TXN-98405", timestamp: new Date("2026-08-27T18:47:00+05:30").getTime(), date: "2026-08-27 18:47 IST", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", riskProfile: "High Risk", securityStatus: "⚠️ High Risk (Flagged)", status: "Flagged", riskScore: 88 },
+            { id: "TXN-98404", timestamp: new Date("2026-08-26T17:36:00+05:30").getTime(), date: "2026-08-26 17:36 IST", recipient: "BlueStar Technologies", category: "Services", amount: 32000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 14 },
+            { id: "TXN-98403", timestamp: new Date("2026-08-25T16:25:00+05:30").getTime(), date: "2026-08-25 16:25 IST", recipient: "Horizon Real Estate", category: "Rent", amount: 45000.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 18 },
+            { id: "TXN-98402", timestamp: new Date("2026-08-24T18:09:00+05:30").getTime(), date: "2026-08-24 18:09 IST", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", riskProfile: "Low Risk", securityStatus: "✅ Low Risk (Verified)", status: "Completed", riskScore: 12 },
         ]);
 
         function App() {
@@ -470,7 +523,7 @@
                 const topUpTxn = {
                     id: txnId,
                     timestamp: nowMs,
-                    date: getIndianTimestamp(),
+                    date: formatISTDate({ timestamp: nowMs }),
                     recipient: `Deposit via ${topUpSource}`,
                     category: "Wallet Top-Up",
                     amount: addAmt,
@@ -532,7 +585,7 @@
                 const newTxnData = {
                     id: txnId,
                     timestamp: nowMs,
-                    date: getIndianTimestamp(),
+                    date: formatISTDate({ timestamp: nowMs }),
                     recipient: recipient,
                     category: category,
                     amount: amt,
@@ -577,7 +630,7 @@
                 if (typeof rtdb !== 'undefined' && rtdb !== null) {
                     try {
                         rtdb.ref(`security_logs/${cleanDocId}/${txnData.id}`).set({
-                            timestamp: getIndianTimestamp(),
+                            timestamp: formatISTDate({ timestamp: txnData.timestamp }),
                             amount: txnData.amount,
                             recipient: txnData.recipient,
                             riskProfile: txnData.riskProfile,
