@@ -120,7 +120,7 @@
             { id: "TXN-98401", date: "2026-09-02 14:15", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", securityStatus: "⚠️ High Risk / Flagged", status: "Flagged", riskScore: 88 },
             { id: "TXN-98400", date: "2026-09-01 20:05", recipient: "Stripe Enterprise Payout", category: "Income", amount: 120000.00, type: "Credit", securityStatus: "Verified", status: "Completed", riskScore: 5 },
             { id: "TXN-98399", date: "2026-09-01 13:40", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 8 },
-            { id: "TXN-98398", date: "2026-08-31 19:20", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", securityStatus: "2FA Authorized", status: "Completed", riskScore: 54 },
+            { id: "TXN-98398", date: "2026-08-31 19:20", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", securityStatus: "🔒 2FA Verified (Medium Risk)", status: "Completed", riskScore: 54 },
         ];
 
         function App() {
@@ -186,23 +186,17 @@
                 setSimRiskScore(totalScore);
             };
 
-            // DIRECT FIRESTORE COLLECTIONS & DOCUMENTS CREATOR
             const syncUserToFirestore = (uId, emailStr, initialTxns = INITIAL_TRANSACTIONS) => {
                 if (typeof db !== 'undefined' && db !== null) {
                     const cleanDocId = String(uId || emailStr).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
-                    
-                    // 1. Write `users/{cleanDocId}` document
                     db.collection("users").doc(cleanDocId).set({
                         uid: uId,
                         email: emailStr,
                         balance: balance || DEFAULT_BALANCE,
                         created_at: new Date().toISOString(),
                         last_active: new Date().toISOString()
-                    }, { merge: true }).then(() => {
-                        console.log("[Firestore] Created user document in 'users' collection:", cleanDocId);
-                    }).catch(err => console.error("[Firestore Error]", err));
+                    }, { merge: true }).catch(err => console.error("[Firestore Error]", err));
 
-                    // 2. Populate `users/{cleanDocId}/transactions` subcollection & global `transactions` collection
                     initialTxns.forEach(t => {
                         const tObj = { ...t, user_email: emailStr, user_uid: uId };
                         db.collection("users").doc(cleanDocId).collection("transactions").doc(t.id).set(tObj, { merge: true }).catch(() => {});
@@ -233,14 +227,12 @@
                 }
             };
 
-            // REAL-TIME FIRESTORE LISTENER & DATA SYNC
             useEffect(() => {
                 if (!user) return;
                 const userId = String(user.uid || user.email || "default").toLowerCase().trim();
                 const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
                 const userKey = `paysphere_txns_${userId}`;
 
-                // Instantly trigger Firestore collections creation
                 syncUserToFirestore(user.uid, user.email, transactions);
 
                 try {
@@ -402,7 +394,6 @@
                 localStorage.removeItem("paysphere_user");
             };
 
-            // ADD MONEY / TOP UP WALLET BALANCE
             const handleAddMoney = (e) => {
                 e.preventDefault();
                 setTopUpNotice(null);
@@ -433,13 +424,9 @@
                 const updatedTxns = [topUpTxn, ...transactions];
                 setTransactions(updatedTxns);
 
-                // RECORD TRANSACTION DIRECTLY IN CLOUD FIRESTORE COLLECTIONS!
                 if (typeof db !== 'undefined' && db !== null) {
                     const cleanDocId = String(user.uid || user.email).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
-                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnId).set(topUpTxn).then(() => {
-                        console.log("[Firestore] Top-Up recorded in user's transactions subcollection:", txnId);
-                    }).catch(() => {});
-
+                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnId).set(topUpTxn).catch(() => {});
                     db.collection("transactions").doc(txnId).set(topUpTxn).catch(() => {});
                 }
 
@@ -472,6 +459,11 @@
                 const isHighAmount = amt >= 50000;
                 const isWire = transferType === 'Bank Wire';
 
+                // DISTINCT SECURITY RISK BADGES (2FA DOES NOT MAKE IT A GREEN PLAIN VERIFIED BADGE!)
+                const secStatus = isHighAmount || isWire 
+                    ? "🔒 2FA Verified (Medium Risk)" 
+                    : "Verified";
+
                 const newTxnData = {
                     id: txnId,
                     date: new Date().toISOString().replace('T', ' ').substring(0, 16),
@@ -480,8 +472,9 @@
                     amount: amt,
                     transferType: transferType,
                     type: "Debit",
-                    securityStatus: isHighAmount || isWire ? "2FA Authorized" : "Verified",
+                    securityStatus: secStatus,
                     status: "Completed",
+                    riskScore: isHighAmount ? 65 : 15,
                     user_email: user.email,
                     user_uid: user.uid
                 };
@@ -509,12 +502,8 @@
 
                 try { localStorage.setItem(`paysphere_txns_${userId}`, JSON.stringify(updatedTxns)); } catch(e) {}
 
-                // RECORD TRANSACTION DIRECTLY IN CLOUD FIRESTORE COLLECTIONS!
                 if (typeof db !== 'undefined' && db !== null) {
-                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnData.id).set(txnData).then(() => {
-                        console.log("[Firestore] Transaction recorded in user's transactions subcollection:", txnData.id);
-                    }).catch(() => {});
-
+                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
                     db.collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
                 }
 
@@ -837,7 +826,13 @@
                                                             {t.type === 'Credit' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                         </td>
                                                         <td className="py-3 px-3">
-                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${t.status === 'Flagged' || (t.riskScore && t.riskScore >= 75) ? 'bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                                t.status === 'Flagged' || (t.riskScore && t.riskScore >= 75)
+                                                                    ? 'bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse'
+                                                                    : (t.securityStatus && t.securityStatus.includes('2FA') || t.amount >= 50000
+                                                                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                                                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
+                                                            }`}>
                                                                 {t.securityStatus || 'Verified'}
                                                             </span>
                                                         </td>
@@ -1025,7 +1020,13 @@
                                                     <div className="font-bold text-slate-200">{t.recipient}</div>
                                                     <div className="text-[10px] text-slate-400">{t.date} • ₹{t.amount.toLocaleString('en-IN')}</div>
                                                 </div>
-                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${t.status === 'Flagged' || (t.riskScore && t.riskScore >= 75) ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                                                    t.status === 'Flagged' || (t.riskScore && t.riskScore >= 75)
+                                                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                                        : (t.securityStatus && t.securityStatus.includes('2FA') || t.amount >= 50000
+                                                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                            : 'bg-emerald-500/20 text-emerald-300')
+                                                }`}>
                                                     {t.securityStatus || 'Verified'}
                                                 </span>
                                             </div>
@@ -1162,7 +1163,7 @@
                                     <div className="flex justify-between"><span className="text-slate-400">Recipient:</span><span className="font-bold">{selectedTxn.recipient}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Category:</span><span>{selectedTxn.category}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Amount Paid:</span><span className="font-bold text-emerald-400">₹{selectedTxn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Security Status:</span><span className="font-bold text-emerald-400">{selectedTxn.securityStatus || 'Verified'}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Security Status:</span><span className="font-bold text-amber-400">{selectedTxn.securityStatus || 'Verified'}</span></div>
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-800 flex space-x-3">
