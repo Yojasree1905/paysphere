@@ -257,7 +257,7 @@
                 }
             }, []);
 
-            // DIRECT FIREBASE AUTHENTICATION USER CREATION & LOGIN HANDLER
+            // STRICT FIREBASE AUTHENTICATION CREATION (POPULATES USERS TABLE IN FIREBASE CONSOLE)
             const handleUnifiedAuth = async (e) => {
                 e.preventDefault();
                 setAuthMsg('');
@@ -276,14 +276,13 @@
 
                 setIsAuthProcessing(true);
 
-                // Convert phone format to email format if phone number entered
+                // Format phone number to email if phone entered
                 const emailId = rawId.includes('@') ? rawId : `${rawId}@paysphere.app`;
 
-                // ALWAYS DIRECTLY CALL FIREBASE AUTH SDK FOR USER TABLE REGISTRATION
                 if (typeof auth !== 'undefined' && auth !== null) {
-                    try {
-                        if (authMode === 'signup') {
-                            // CREATE NEW USER IN FIREBASE AUTHENTICATION CONSOLE!
+                    if (authMode === 'signup') {
+                        try {
+                            // REAL FIREBASE AUTHENTICATION API CALL -> POPULATES USERS TABLE
                             const res = await auth.createUserWithEmailAndPassword(emailId, pwd);
                             saveDbUser(rawId, pwd, { uid: res.user.uid });
                             const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
@@ -292,8 +291,22 @@
                             loadUserTransactions(uObj);
                             setIsAuthProcessing(false);
                             return;
-                        } else {
-                            // SIGN IN EXISTING USER VIA FIREBASE AUTHENTICATION
+                        } catch (fbErr) {
+                            console.error("[Firebase Auth Signup Error]", fbErr);
+                            
+                            if (fbErr.code === 'auth/email-already-in-use') {
+                                setAuthMsg("❌ Account already registered in Firebase Auth! Please click 'Sign In'.");
+                            } else if (fbErr.code === 'auth/weak-password') {
+                                setAuthMsg("❌ Password should be at least 6 characters long.");
+                            } else {
+                                setAuthMsg(`❌ Firebase Auth Error: ${fbErr.message}`);
+                            }
+                            setIsAuthProcessing(false);
+                            return;
+                        }
+                    } else {
+                        // SIGN IN EXISTING USER VIA FIREBASE AUTHENTICATION
+                        try {
                             const res = await auth.signInWithEmailAndPassword(emailId, pwd);
                             saveDbUser(rawId, pwd, { uid: res.user.uid });
                             const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
@@ -302,20 +315,16 @@
                             loadUserTransactions(uObj);
                             setIsAuthProcessing(false);
                             return;
-                        }
-                    } catch (fbErr) {
-                        console.warn("[Firebase Auth]", fbErr);
+                        } catch (fbErr) {
+                            console.error("[Firebase Auth Signin Error]", fbErr);
 
-                        if (fbErr.code === 'auth/email-already-in-use') {
-                            setAuthMsg("❌ Account already registered in Firebase! Please click 'Sign In'.");
-                            setIsAuthProcessing(false);
-                            return;
-                        } else if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
-                            setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
-                            setIsAuthProcessing(false);
-                            return;
-                        } else if (fbErr.code === 'auth/user-not-found') {
-                            setAuthMsg("❌ Account not found in Firebase! Please click 'Sign Up' first.");
+                            if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
+                                setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
+                            } else if (fbErr.code === 'auth/user-not-found') {
+                                setAuthMsg("❌ Account not found in Firebase! Please click 'Sign Up' first.");
+                            } else {
+                                setAuthMsg(`❌ Firebase Auth Error: ${fbErr.message}`);
+                            }
                             setIsAuthProcessing(false);
                             return;
                         }
@@ -383,6 +392,7 @@
                         return;
                     } catch (err) {
                         console.warn("[Google Auth Popup]", err);
+                        setAuthMsg(`❌ Google Auth: ${err.message}`);
                     }
                 }
 
@@ -639,7 +649,7 @@
                                     disabled={isAuthProcessing} 
                                     className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm flex items-center justify-center space-x-2"
                                 >
-                                    <span>{isAuthProcessing ? 'Verifying Credentials...' : (authMode === 'signup' ? 'Create Account & Register in Firebase' : 'Sign In to PaySphere')}</span>
+                                    <span>{isAuthProcessing ? 'Connecting to Firebase...' : (authMode === 'signup' ? 'Create Account & Register in Firebase' : 'Sign In to PaySphere')}</span>
                                     <Icon name="arrow-right" className="w-4 h-4" />
                                 </button>
                             </form>
