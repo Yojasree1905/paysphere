@@ -233,7 +233,7 @@
                 }, 0);
             };
 
-            // Listen for API connection
+            // Listen for API connection & Firebase Auth State
             useEffect(() => {
                 fetch(`${API_BASE_URL}/api/v1/health`)
                     .then(res => res.json())
@@ -242,13 +242,23 @@
                     })
                     .catch(() => setApiConnected(false));
 
-                if (user) {
+                if (typeof auth !== 'undefined' && auth !== null) {
+                    const unsubscribe = auth.onAuthStateChanged(currentUser => {
+                        if (currentUser) {
+                            const uObj = { email: currentUser.email || currentUser.phoneNumber, uid: currentUser.uid, provider: "Firebase Auth" };
+                            setUser(uObj);
+                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            loadUserTransactions(uObj);
+                        }
+                    });
+                    return () => unsubscribe();
+                } else if (user) {
                     loadUserTransactions(user);
                 }
             }, []);
 
-            // UNIFIED SIGN-IN / SIGN-UP FORM HANDLER
-            const handleUnifiedAuth = (e) => {
+            // UNIFIED SIGN-IN / SIGN-UP FORM HANDLER CONNECTED TO FIREBASE & DATABASE
+            const handleUnifiedAuth = async (e) => {
                 e.preventDefault();
                 setAuthMsg('');
                 const id = loginInput.trim().toLowerCase();
@@ -266,18 +276,47 @@
 
                 setIsAuthProcessing(true);
 
+                // Try Official Firebase Auth first if it's an email
+                if (typeof auth !== 'undefined' && auth !== null && id.includes('@')) {
+                    try {
+                        if (authMode === 'signup') {
+                            const res = await auth.createUserWithEmailAndPassword(id, pwd);
+                            saveDbUser(id, pwd, { uid: res.user.uid });
+                            const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Email Auth" };
+                            setUser(uObj);
+                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            loadUserTransactions(uObj);
+                            setIsAuthProcessing(false);
+                            return;
+                        } else {
+                            const res = await auth.signInWithEmailAndPassword(id, pwd);
+                            const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Email Auth" };
+                            setUser(uObj);
+                            localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            loadUserTransactions(uObj);
+                            setIsAuthProcessing(false);
+                            return;
+                        }
+                    } catch (fbErr) {
+                        if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
+                            setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
+                            setIsAuthProcessing(false);
+                            return;
+                        }
+                    }
+                }
+
+                // Database Local & Firestore Fallback Handler
                 try {
                     const usersDb = getRegisteredUsers();
 
                     if (authMode === 'signup') {
-                        // Check if account already exists
                         if (usersDb[id]) {
                             setAuthMsg("❌ Account already exists for this Email/Phone. Please click 'Sign In'!");
                             setIsAuthProcessing(false);
                             return;
                         }
                         
-                        // Register new user
                         saveDbUser(id, pwd);
                         const uid = "USER-" + Math.abs(id.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
                         const uObj = { email: id, uid: uid };
@@ -287,7 +326,6 @@
                         loadUserTransactions(uObj);
                         setIsAuthProcessing(false);
                     } else { // LOGIN MODE
-                        // Verify Password
                         if (usersDb[id] && usersDb[id].password !== pwd) {
                             setAuthMsg("❌ Incorrect Password! Please check your password and try again.");
                             setIsAuthProcessing(false);
@@ -305,12 +343,12 @@
                     }
                 } catch (err) {
                     console.error("Auth error:", err);
-                    setAuthMsg(`❌ Registration notice: ${err.message || 'Please check input'}`);
+                    setAuthMsg("❌ Authentication error. Please check credentials.");
                     setIsAuthProcessing(false);
                 }
             };
 
-            // GOOGLE SIGN-IN HANDLER
+            // GOOGLE SIGN-IN HANDLER (Opens Official Google Accounts Popup Modal)
             const handleGoogleAuth = async () => {
                 setAuthMsg('');
                 setIsAuthProcessing(true);
@@ -334,8 +372,8 @@
                     }
                 }
 
-                // Native Google Account Selector Prompt simulation
-                const selectedGoogleAccount = prompt("Select your Google Account:", "vankireddi.s2023@vitstudent.ac.in");
+                // Native Google Account Selector Prompt fallback
+                const selectedGoogleAccount = prompt("Select your Google Account:", "yoju1907@gmail.com");
                 if (selectedGoogleAccount) {
                     const gEmail = selectedGoogleAccount.trim().toLowerCase();
                     saveDbUser(gEmail, "GOOGLE_AUTH_TOKEN", { provider: "Google Account" });
@@ -957,8 +995,8 @@
 
                                 <div className="space-y-4 text-xs leading-relaxed text-slate-300">
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
-                                        <h4 className="font-bold text-white mb-1">1. Fast Instant Authentication</h4>
-                                        <p>Verification completes instantly without network delay hanging.</p>
+                                        <h4 className="font-bold text-white mb-1">1. Enabled Firebase Providers</h4>
+                                        <p>Email/Password, Phone Number, and Google Sign-In are active on paysphere-7be2b.</p>
                                     </div>
 
                                     <div className="bg-slate-800/60 p-3.5 rounded-xl border border-slate-700">
