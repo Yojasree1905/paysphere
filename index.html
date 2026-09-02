@@ -33,13 +33,6 @@
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.07);
         }
-        .glass-panel-hover {
-            transition: all 0.25s ease;
-        }
-        .glass-panel-hover:hover {
-            border-color: rgba(99, 102, 241, 0.3);
-            box-shadow: 0 10px 30px -10px rgba(99, 102, 241, 0.15);
-        }
         .gradient-brand {
             background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
             -webkit-background-clip: text;
@@ -63,10 +56,10 @@
             border-radius: 4px;
         }
         .otp-input {
-            width: 48px;
-            height: 56px;
+            width: 44px;
+            height: 52px;
             text-align: center;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
             background: #0f172a;
             border: 1.5px solid #334155;
@@ -84,11 +77,10 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect } = React;
         const API_BASE_URL = 'http://localhost:8000';
-        const DEFAULT_BALANCE = 500000.00; // ₹5,00,000 Standard Initial Wallet Balance
+        const DEFAULT_BALANCE = 500000.00;
 
-        // Registered accounts helper
         const getRegisteredUsers = () => {
             try {
                 const saved = localStorage.getItem("paysphere_registered_users");
@@ -107,12 +99,10 @@
                 bot: <><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></>,
                 chart: <><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></>,
                 send: <><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></>,
+                plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
                 "arrow-right": <><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>,
-                user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
                 lock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
                 google: <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>,
-                check: <polyline points="20 6 9 17 4 12" />,
-                alert: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>,
                 qr: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M17 17h4v4h-4z"/><path d="M14 20h3v1h-3z"/></>,
                 refresh: <><path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></>
             };
@@ -125,11 +115,11 @@
         }
 
         const INITIAL_TRANSACTIONS = [
-            { id: "TXN-98402", date: "2026-09-02 18:32", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", securityStatus: "Verified", status: "Completed" },
-            { id: "TXN-98401", date: "2026-09-02 14:15", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", securityStatus: "High Security Flag", status: "Flagged" },
-            { id: "TXN-98400", date: "2026-09-01 20:05", recipient: "Stripe Enterprise Payout", category: "Income", amount: 120000.00, type: "Credit", securityStatus: "Verified", status: "Completed" },
-            { id: "TXN-98399", date: "2026-09-01 13:40", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", securityStatus: "Verified", status: "Completed" },
-            { id: "TXN-98398", date: "2026-08-31 19:20", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", securityStatus: "2FA Authorized", status: "Completed" },
+            { id: "TXN-98402", date: "2026-09-02 18:32", recipient: "AWS Cloud Infrastructure", category: "Services", amount: 14999.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 12 },
+            { id: "TXN-98401", date: "2026-09-02 14:15", recipient: "Global Exchange Node", category: "Wire Transfer", amount: 245000.00, type: "Debit", securityStatus: "⚠️ High Risk / Flagged", status: "Flagged", riskScore: 88 },
+            { id: "TXN-98400", date: "2026-09-01 20:05", recipient: "Stripe Enterprise Payout", category: "Income", amount: 120000.00, type: "Credit", securityStatus: "Verified", status: "Completed", riskScore: 5 },
+            { id: "TXN-98399", date: "2026-09-01 13:40", recipient: "Subway Gourmet Dining", category: "Dining", amount: 1850.00, type: "Debit", securityStatus: "Verified", status: "Completed", riskScore: 8 },
+            { id: "TXN-98398", date: "2026-08-31 19:20", recipient: "Digital Payment Gateway", category: "Transfer", amount: 89000.00, type: "Debit", securityStatus: "2FA Authorized", status: "Completed", riskScore: 54 },
         ];
 
         function App() {
@@ -140,7 +130,7 @@
                 } catch(e) { return null; }
             });
 
-            const [activeTab, setActiveTab] = useState('payments'); // 'payments', 'security', 'insights', 'analytics'
+            const [activeTab, setActiveTab] = useState('payments'); // 'payments', 'add_money', 'security', 'insights', 'analytics'
             const [balance, setBalance] = useState(DEFAULT_BALANCE);
             const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
             const [selectedTxn, setSelectedTxn] = useState(null);
@@ -156,10 +146,17 @@
             const [recipient, setRecipient] = useState('');
             const [amount, setAmount] = useState('');
             const [category, setCategory] = useState('Transfer');
-            const [transferType, setTransferType] = useState('UPI'); // 'UPI', 'Bank Wire', 'Card Pay', 'Blacklisted/Suspicious'
+            const [transferType, setTransferType] = useState('UPI');
+            const [geoDistance, setGeoDistance] = useState('15'); // Geolocation Distance (km)
+            const [recentCount, setRecentCount] = useState('2'); // Transfer Velocity Count in 1 hr
             const [paymentNotice, setPaymentNotice] = useState(null);
 
-            // 2FA Modal Verification State
+            // Add Money / Top Up Balance State
+            const [topUpAmount, setTopUpAmount] = useState('');
+            const [topUpSource, setTopUpSource] = useState('UPI / Bank Transfer');
+            const [topUpNotice, setTopUpNotice] = useState(null);
+
+            // 2FA Modal State
             const [show2FAModal, setShow2FAModal] = useState(false);
             const [pendingTransaction, setPendingTransaction] = useState(null);
             const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
@@ -167,34 +164,23 @@
 
             // AI Insights Chat State
             const [chatMessages, setChatMessages] = useState([
-                { sender: 'assistant', text: 'Hello! I am your PaySphere Personal Financial Advisor. How can I help you analyze your spending or manage your wallet today?' }
+                { sender: 'assistant', text: 'Hello! I am your PaySphere Personal Financial Advisor powered by Cloud Firestore. How can I assist your wallet management today?' }
             ]);
             const [chatInput, setChatInput] = useState('');
 
-            // Register User helper
-            const saveDbUser = (identifier, password, extraData = {}) => {
-                const idKey = String(identifier).toLowerCase().trim();
-                const users = getRegisteredUsers();
-                const currentBal = users[idKey]?.balance || DEFAULT_BALANCE;
-                users[idKey] = {
-                    password: password,
-                    balance: currentBal,
-                    created_at: new Date().toISOString(),
-                    ...extraData
-                };
-                try { localStorage.setItem("paysphere_registered_users", JSON.stringify(users)); } catch(e) {}
-
-                // Save to Firestore users collection
+            // DIRECT CLOUD FIRESTORE USER DOCUMENT WRITER (Creates `users` collection in Firestore Console)
+            const syncUserToFirestore = (uId, emailStr, pwd = "") => {
                 if (typeof db !== 'undefined' && db !== null) {
-                    try {
-                        const cleanDocId = idKey.replace(/[^a-zA-Z0-9_@.-]/g, '_');
-                        db.collection("users").doc(cleanDocId).set({
-                            identifier: identifier,
-                            balance: currentBal,
-                            updated_at: new Date().toISOString(),
-                            ...extraData
-                        }, { merge: true }).catch(() => {});
-                    } catch (e) {}
+                    const cleanDocId = String(uId || emailStr).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
+                    db.collection("users").doc(cleanDocId).set({
+                        uid: uId,
+                        email: emailStr,
+                        balance: balance || DEFAULT_BALANCE,
+                        created_at: new Date().toISOString(),
+                        last_login: new Date().toISOString()
+                    }, { merge: true }).then(() => {
+                        console.log("[Firestore] User document created in 'users' collection:", cleanDocId);
+                    }).catch(err => console.error("[Firestore User Creation Error]", err));
                 }
             };
 
@@ -228,7 +214,10 @@
                 const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
                 const userKey = `paysphere_txns_${userId}`;
 
-                // 1. Restore local state instantly
+                // Sync initial profile collection doc
+                syncUserToFirestore(user.uid, user.email);
+
+                // Restore local cache
                 try {
                     const savedBal = localStorage.getItem(`paysphere_balance_${userId}`);
                     if (savedBal !== null) setBalance(parseFloat(savedBal));
@@ -237,9 +226,8 @@
                     if (savedTxns) setTransactions(JSON.parse(savedTxns));
                 } catch(e) {}
 
-                // 2. Attach Live Real-time Snapshot Listener to Firestore
+                // Live Firestore Snapshot Listeners
                 if (typeof db !== 'undefined' && db !== null) {
-                    // Listen to User Profile & Balance changes in real-time
                     const unsubUser = db.collection("users").doc(cleanDocId).onSnapshot(doc => {
                         if (doc.exists && doc.data().balance !== undefined) {
                             const dbBal = parseFloat(doc.data().balance);
@@ -248,7 +236,6 @@
                         }
                     }, err => console.warn("Firestore user sync error:", err));
 
-                    // Listen to Transactions subcollection in real-time
                     const unsubTxns = db.collection("users").doc(cleanDocId).collection("transactions")
                         .orderBy("date", "desc")
                         .onSnapshot(snapshot => {
@@ -266,7 +253,7 @@
                 }
             }, [user]);
 
-            // Listen for Firebase Auth changes
+            // Listen for Firebase Auth State Changes & Sync to Firebase Authentication Table
             useEffect(() => {
                 if (typeof auth !== 'undefined' && auth !== null) {
                     const unsubscribe = auth.onAuthStateChanged(currentUser => {
@@ -274,13 +261,14 @@
                             const uObj = { email: currentUser.email || currentUser.phoneNumber, uid: currentUser.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            syncUserToFirestore(currentUser.uid, uObj.email);
                         }
                     });
                     return () => unsubscribe();
                 }
             }, []);
 
-            // UNIFIED AUTH HANDLER
+            // UNIFIED SIGN-IN & SIGN-UP HANDLER (FIREBASE AUTH & FIRESTORE COLLECTIONS)
             const handleUnifiedAuth = async (e) => {
                 e.preventDefault();
                 setAuthMsg('');
@@ -303,16 +291,18 @@
                 if (typeof auth !== 'undefined' && auth !== null) {
                     if (authMode === 'signup') {
                         try {
+                            // CREATE NEW USER IN FIREBASE AUTHENTICATION CONSOLE!
                             const res = await auth.createUserWithEmailAndPassword(emailId, pwd);
-                            saveDbUser(rawId, pwd, { uid: res.user.uid });
                             const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            syncUserToFirestore(res.user.uid, res.user.email, pwd);
                             setIsAuthProcessing(false);
                             return;
                         } catch (fbErr) {
+                            console.error("[Firebase Auth Signup]", fbErr);
                             if (fbErr.code === 'auth/email-already-in-use') {
-                                setAuthMsg("An account with this credential already exists. Please Sign In.");
+                                setAuthMsg("An account with this email already exists in Firebase. Please Sign In.");
                             } else {
                                 setAuthMsg(fbErr.message);
                             }
@@ -321,16 +311,20 @@
                         }
                     } else {
                         try {
+                            // SIGN IN EXISTING USER VIA FIREBASE AUTHENTICATION
                             const res = await auth.signInWithEmailAndPassword(emailId, pwd);
-                            saveDbUser(rawId, pwd, { uid: res.user.uid });
                             const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                            syncUserToFirestore(res.user.uid, res.user.email, pwd);
                             setIsAuthProcessing(false);
                             return;
                         } catch (fbErr) {
+                            console.error("[Firebase Auth Signin]", fbErr);
                             if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
                                 setAuthMsg("Invalid credentials. Please check your email and password.");
+                            } else if (fbErr.code === 'auth/user-not-found') {
+                                setAuthMsg("Account not found in Firebase Auth! Please click 'Sign Up' first.");
                             } else {
                                 setAuthMsg(fbErr.message);
                             }
@@ -340,33 +334,13 @@
                     }
                 }
 
-                // Fallback Local Login
-                const usersDb = getRegisteredUsers();
-                if (authMode === 'signup') {
-                    if (usersDb[rawId]) {
-                        setAuthMsg("Account already registered. Please Sign In.");
-                        setIsAuthProcessing(false);
-                        return;
-                    }
-                    saveDbUser(rawId, pwd);
-                    const uid = "USER-" + Math.abs(rawId.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
-                    const uObj = { email: rawId, uid: uid };
-                    setUser(uObj);
-                    localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                    setIsAuthProcessing(false);
-                } else {
-                    if (usersDb[rawId] && usersDb[rawId].password !== pwd) {
-                        setAuthMsg("Invalid password. Please check your credentials.");
-                        setIsAuthProcessing(false);
-                        return;
-                    }
-                    saveDbUser(rawId, pwd);
-                    const uid = "USER-" + Math.abs(rawId.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
-                    const uObj = { email: rawId, uid: uid };
-                    setUser(uObj);
-                    localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                    setIsAuthProcessing(false);
-                }
+                // Local Fallback
+                const uid = "USER-" + Math.abs(rawId.split('').reduce((acc, ch) => ((acc << 5) - acc) + ch.charCodeAt(0), 0));
+                const uObj = { email: rawId, uid: uid };
+                setUser(uObj);
+                localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                syncUserToFirestore(uid, rawId, pwd);
+                setIsAuthProcessing(false);
             };
 
             // GOOGLE SIGN-IN HANDLER
@@ -382,6 +356,7 @@
                         const uObj = { email: res.user.email, uid: res.user.uid, provider: "Google Account" };
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                        syncUserToFirestore(res.user.uid, res.user.email);
                         setIsAuthProcessing(false);
                         return;
                     } catch (err) {
@@ -389,13 +364,14 @@
                     }
                 }
 
-                const selectedAccount = prompt("Select Google Account:", "user@gmail.com");
+                const selectedAccount = prompt("Select Google Account:", "vankireddi.s2023@vitstudent.ac.in");
                 if (selectedAccount) {
                     const gEmail = selectedAccount.trim().toLowerCase();
-                    saveDbUser(gEmail, "GOOGLE_AUTH_TOKEN", { provider: "Google Account" });
-                    const uObj = { email: gEmail, uid: `GOOGLE-${Math.abs(gEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0))}` };
+                    const uid = `GOOGLE-${Math.abs(gEmail.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0))}`;
+                    const uObj = { email: gEmail, uid: uid };
                     setUser(uObj);
                     localStorage.setItem("paysphere_user", JSON.stringify(uObj));
+                    syncUserToFirestore(uid, gEmail);
                 }
                 setIsAuthProcessing(false);
             };
@@ -408,7 +384,78 @@
                 localStorage.removeItem("paysphere_user");
             };
 
-            // INITIATE TRANSACTION FLOW (FRAUD FLAGGING, BLOCKING WRONG TYPES, & 2FA TRIGGER)
+            // ADD MONEY / TOP UP WALLET BALANCE
+            const handleAddMoney = (e) => {
+                e.preventDefault();
+                setTopUpNotice(null);
+                const addAmt = parseFloat(topUpAmount);
+
+                if (!addAmt || addAmt <= 0) {
+                    setTopUpNotice({ type: 'error', text: 'Please enter a valid amount to add to your wallet.' });
+                    return;
+                }
+
+                const newBal = balance + addAmt;
+                updateBalanceInDatabase(user, newBal);
+
+                // Add credit transaction to history
+                const txnId = `TOPUP-${Math.floor(10000 + Math.random() * 90000)}`;
+                const topUpTxn = {
+                    id: txnId,
+                    date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                    recipient: `Deposit via ${topUpSource}`,
+                    category: "Wallet Top-Up",
+                    amount: addAmt,
+                    type: "Credit",
+                    securityStatus: "Verified Deposit",
+                    status: "Completed",
+                    user_email: user.email,
+                    user_uid: user.uid
+                };
+
+                const updatedTxns = [topUpTxn, ...transactions];
+                setTransactions(updatedTxns);
+
+                // Write to Firestore collections
+                if (typeof db !== 'undefined' && db !== null) {
+                    const cleanDocId = String(user.uid || user.email).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
+                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnId).set(topUpTxn).catch(() => {});
+                    db.collection("transactions").doc(txnId).set(topUpTxn).catch(() => {});
+                }
+
+                setTopUpAmount('');
+                setTopUpNotice({ type: 'success', text: `Successfully added ₹${addAmt.toLocaleString('en-IN')} to your PaySphere wallet!` });
+            };
+
+            // ADVANCED AI FRAUD RISK SCORING ENGINE (VELOCITY, AMOUNT, GEOLOCATION DISTANCE)
+            const calculateAdvancedFraudRisk = (amt, vel, dist, rName, tType) => {
+                let riskScore = 0;
+
+                // 1. Amount Risk
+                if (amt > 100000) riskScore += 45;
+                else if (amt > 50000) riskScore += 30;
+                else if (amt > 15000) riskScore += 15;
+                else riskScore += 5;
+
+                // 2. Velocity Risk (Transfers per hour)
+                const velocityCount = parseInt(vel) || 1;
+                if (velocityCount >= 5) riskScore += 35;
+                else if (velocityCount >= 3) riskScore += 20;
+
+                // 3. Geolocation Distance Risk (km from home location)
+                const distanceKm = parseFloat(dist) || 0;
+                if (distanceKm > 500) riskScore += 30;
+                else if (distanceKm > 100) riskScore += 15;
+
+                // 4. Blacklisted or suspicious transfer type
+                if (tType === 'Blacklisted/Suspicious' || rName.toLowerCase().includes('blacklisted') || rName.toLowerCase().includes('scam')) {
+                    riskScore += 90;
+                }
+
+                return Math.min(99, riskScore);
+            };
+
+            // INITIATE TRANSACTION FLOW (FRAUD FLAGGING, BLOCKING, & 2FA TRIGGER)
             const handleInitiatePayment = (e) => {
                 e.preventDefault();
                 setPaymentNotice(null);
@@ -421,18 +468,22 @@
                     return;
                 }
 
-                // 1. BLOCK INVALID OR SUSPICIOUS TRANSFER TYPES
+                // Calculate advanced AI Fraud Risk Score
+                const riskScore = calculateAdvancedFraudRisk(amt, recentCount, geoDistance, recipient, transferType);
+                const isHighRisk = riskScore >= 75;
+                const isMediumRisk = riskScore >= 40 || amt >= 50000;
+
+                // 1. BLOCK EXTREME BLACKLISTED SCAM ROUTES
                 if (transferType === 'Blacklisted/Suspicious' || recipient.toLowerCase().includes('blacklisted') || recipient.toLowerCase().includes('scam')) {
                     setPaymentNotice({ 
                         type: 'error', 
-                        text: '⚠️ Transaction Blocked by PaySphere Fraud Guard: Recipient account is flagged for high security risk or invalid route.' 
+                        text: '⚠️ Transaction Blocked by PaySphere Fraud Guard: Recipient account is flagged for security risk.' 
                     });
                     return;
                 }
 
                 const txnId = `TXN-${Math.floor(10000 + Math.random() * 90000)}`;
-                const isHighAmount = amt >= 50000;
-                const isWire = transferType === 'Bank Wire';
+                const secStatus = isHighRisk ? "⚠️ High Risk / Flagged" : (isMediumRisk ? "2FA Authorized" : "Verified");
 
                 const newTxnData = {
                     id: txnId,
@@ -442,26 +493,26 @@
                     amount: amt,
                     transferType: transferType,
                     type: "Debit",
-                    securityStatus: isHighAmount || isWire ? "2FA Authorized" : "Verified",
-                    status: "Completed",
+                    riskScore: riskScore,
+                    securityStatus: secStatus,
+                    status: isHighRisk ? "Flagged" : "Completed",
                     user_email: user.email,
                     user_uid: user.uid
                 };
 
-                // 2. TRIGGER 2FA VERIFICATION MODAL FOR HIGH AMOUNT OR WIRE TRANSFERS
-                if (isHighAmount || isWire) {
+                // 2. TRIGGER 2FA VERIFICATION MODAL FOR MEDIUM & HIGH RISK TRANSACTIONS
+                if (isMediumRisk || isHighRisk) {
                     setPendingTransaction(newTxnData);
                     setOtpValues(['', '', '', '', '', '']);
                     setOtpError('');
                     setShow2FAModal(true);
                 } else {
-                    // SILENT INSTANT EXECUTION FOR NORMAL PAYMENTS
                     executeFinalPayment(newTxnData);
                     setPaymentNotice({ type: 'success', text: `Payment of ₹${amt.toLocaleString('en-IN')} sent successfully.` });
                 }
             };
 
-            // EXECUTE FINAL PAYMENT & SYNC REALTIME TO FIRESTORE / RTDB
+            // EXECUTE FINAL PAYMENT & WRITE TO FIRESTORE COLLECTIONS
             const executeFinalPayment = (txnData) => {
                 const updatedTxns = [txnData, ...transactions];
                 setTransactions(updatedTxns);
@@ -469,25 +520,33 @@
                 const newBal = Math.max(0, balance - txnData.amount);
                 updateBalanceInDatabase(user, newBal);
 
-                // Save to local cache
                 const userId = String(user.uid || user.email).toLowerCase().trim();
+                const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
+
                 try { localStorage.setItem(`paysphere_txns_${userId}`, JSON.stringify(updatedTxns)); } catch(e) {}
 
-                // Save to Cloud Firestore Subcollection & Global Ledger in background
+                // GUARANTEED CLOUD FIRESTORE WRITE -> CREATES `users` & `transactions` COLLECTIONS
                 if (typeof db !== 'undefined' && db !== null) {
-                    const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
                     db.collection("users").doc(cleanDocId).collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
                     db.collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
+
+                    // Log security alert collection if flagged
+                    if (txnData.status === 'Flagged' || txnData.riskScore >= 75) {
+                        db.collection("security_alerts").doc(txnData.id).set({
+                            ...txnData,
+                            flagged_reason: "High Velocity / High Amount / Distance Anomaly"
+                        }).catch(() => {});
+                    }
                 }
 
-                // Log security verification event to Realtime Database
+                // Log to Realtime Database
                 if (typeof rtdb !== 'undefined' && rtdb !== null) {
                     try {
-                        const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
                         rtdb.ref(`security_logs/${cleanDocId}/${txnData.id}`).set({
                             timestamp: new Date().toISOString(),
                             amount: txnData.amount,
                             recipient: txnData.recipient,
+                            riskScore: txnData.riskScore,
                             securityStatus: txnData.securityStatus
                         }).catch(() => {});
                     } catch(e) {}
@@ -506,22 +565,22 @@
                     return;
                 }
 
-                // Complete payment once 2FA is verified!
                 if (pendingTransaction) {
                     executeFinalPayment(pendingTransaction);
                     setShow2FAModal(false);
                     setPendingTransaction(null);
-                    setPaymentNotice({ type: 'success', text: `2FA Security Verified! Payment of ₹${pendingTransaction.amount.toLocaleString('en-IN')} sent.` });
+                    setPaymentNotice({ 
+                        type: 'success', 
+                        text: `2FA Verified! Payment of ₹${pendingTransaction.amount.toLocaleString('en-IN')} authorized.` 
+                    });
                 }
             };
 
-            // OTP Input box change handler
             const handleOtpChange = (val, idx) => {
                 if (/^[0-9]?$/.test(val)) {
                     const newOtp = [...otpValues];
                     newOtp[idx] = val;
                     setOtpValues(newOtp);
-                    // Focus next box automatically
                     if (val && idx < 5) {
                         const nextElem = document.getElementById(`otp-input-${idx + 1}`);
                         if (nextElem) nextElem.focus();
@@ -529,7 +588,7 @@
                 }
             };
 
-            // AI Financial Advisor Assistant Response
+            // AI Financial Assistant Response
             const handleSendMessage = (e) => {
                 e.preventDefault();
                 if (!chatInput.trim()) return;
@@ -573,7 +632,6 @@
                                 <p className="text-xs text-slate-400">Secure Client Access & Identity Verification</p>
                             </div>
 
-                            {/* Sign In vs Sign Up Tabs */}
                             <div className="flex bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs">
                                 <button onClick={() => { setAuthMode('login'); setAuthMsg(''); }} className={`flex-1 py-2 font-bold rounded-lg transition-all text-center ${authMode === 'login' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
                                     Sign In
@@ -619,7 +677,7 @@
                                     disabled={isAuthProcessing} 
                                     className="w-full gradient-btn text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/20 transition-all text-sm flex items-center justify-center space-x-2"
                                 >
-                                    <span>{isAuthProcessing ? 'Authenticating...' : (authMode === 'signup' ? 'Create Secure Account' : 'Sign In to PaySphere')}</span>
+                                    <span>{isAuthProcessing ? 'Connecting to Firebase...' : (authMode === 'signup' ? 'Create Account & Register in Firebase' : 'Sign In to PaySphere')}</span>
                                     <Icon name="arrow-right" className="w-4 h-4" />
                                 </button>
                             </form>
@@ -672,18 +730,22 @@
                         </div>
                     </header>
 
-                    {/* Main Navigation Bar */}
+                    {/* Main Navigation Tabs */}
                     <main className="max-w-7xl mx-auto px-6 pt-8">
                         <div className="flex space-x-3 border-b border-slate-800/80 mb-8 overflow-x-auto">
                             <button onClick={() => setActiveTab('payments')} className={`pb-3.5 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'payments' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
                                 <Icon name="credit-card" className="w-4 h-4" />
                                 <span>Payments & Activity</span>
                             </button>
+                            <button onClick={() => setActiveTab('add_money')} className={`pb-3.5 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'add_money' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                                <Icon name="plus" className="w-4 h-4" />
+                                <span>Add Money</span>
+                            </button>
                             <button onClick={() => setActiveTab('security')} className={`pb-3.5 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'security' ? 'border-purple-500 text-purple-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
                                 <Icon name="shield" className="w-4 h-4" />
                                 <span>Security Shield</span>
                             </button>
-                            <button onClick={() => setActiveTab('insights')} className={`pb-3.5 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'insights' ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+                            <button onClick={() => setActiveTab('insights')} className={`pb-3.5 px-4 text-sm font-semibold flex items-center space-x-2 border-b-2 transition-all whitespace-nowrap ${activeTab === 'insights' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
                                 <Icon name="bot" className="w-4 h-4" />
                                 <span>Smart Insights</span>
                             </button>
@@ -709,30 +771,41 @@
                                             </div>
                                         )}
 
-                                        <form onSubmit={handleInitiatePayment} className="space-y-4">
+                                        <form onSubmit={handleInitiatePayment} className="space-y-4 text-xs">
                                             <div>
-                                                <label className="block text-xs font-semibold text-slate-400 mb-1">Recipient Name or UPI ID</label>
+                                                <label className="block font-semibold text-slate-400 mb-1">Recipient Name or UPI ID</label>
                                                 <input type="text" value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="e.g. alex.smith@upi" className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" required />
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-slate-400 mb-1">Amount (₹ INR)</label>
+                                                    <label className="block font-semibold text-slate-400 mb-1">Amount (₹ INR)</label>
                                                     <input type="number" step="1" value={amount} onChange={e => setAmount(e.target.value)} placeholder="5000" className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" required />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-slate-400 mb-1">Payment Method</label>
+                                                    <label className="block font-semibold text-slate-400 mb-1">Payment Method</label>
                                                     <select value={transferType} onChange={e => setTransferType(e.target.value)} className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
                                                         <option value="UPI">UPI Instant</option>
-                                                        <option value="Bank Wire">Bank Wire (2FA)</option>
+                                                        <option value="Bank Wire">Bank Wire</option>
                                                         <option value="Card Pay">Card Payment</option>
                                                         <option value="Blacklisted/Suspicious">Suspicious Route (Blocked)</option>
                                                     </select>
                                                 </div>
                                             </div>
 
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block font-semibold text-slate-400 mb-1">Location Distance (km)</label>
+                                                    <input type="number" value={geoDistance} onChange={e => setGeoDistance(e.target.value)} placeholder="15" className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+                                                </div>
+                                                <div>
+                                                    <label className="block font-semibold text-slate-400 mb-1">Transfers/Hour</label>
+                                                    <input type="number" value={recentCount} onChange={e => setRecentCount(e.target.value)} placeholder="2" className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" />
+                                                </div>
+                                            </div>
+
                                             <div>
-                                                <label className="block text-xs font-semibold text-slate-400 mb-1">Category</label>
+                                                <label className="block font-semibold text-slate-400 mb-1">Category</label>
                                                 <select value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
                                                     <option>Transfer</option>
                                                     <option>Dining</option>
@@ -748,7 +821,7 @@
                                         </form>
                                     </div>
 
-                                    {/* Real Merchant UPI QR Code */}
+                                    {/* Merchant QR Code */}
                                     <div className="glass-panel p-6 rounded-2xl text-center space-y-3">
                                         <h4 className="text-sm font-bold text-white flex items-center justify-center space-x-2">
                                             <Icon name="qr" className="w-4 h-4 text-indigo-400" />
@@ -781,7 +854,7 @@
                                                     <th className="py-3 px-3">Transaction ID</th>
                                                     <th className="py-3 px-3">Recipient</th>
                                                     <th className="py-3 px-3">Amount</th>
-                                                    <th className="py-3 px-3">Security Verification</th>
+                                                    <th className="py-3 px-3">Security Status</th>
                                                     <th className="py-3 px-3 text-right">Receipt</th>
                                                 </tr>
                                             </thead>
@@ -797,7 +870,7 @@
                                                             {t.type === 'Credit' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                         </td>
                                                         <td className="py-3 px-3">
-                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${t.status === 'Flagged' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${t.status === 'Flagged' || (t.riskScore && t.riskScore >= 75) ? 'bg-red-500/15 text-red-400 border border-red-500/30 animate-pulse' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                                                                 {t.securityStatus || 'Verified'}
                                                             </span>
                                                         </td>
@@ -815,52 +888,100 @@
                             </div>
                         )}
 
-                        {/* TAB 2: PAYSPHERE SHIELD SECURITY */}
+                        {/* TAB 2: ADD MONEY / TOP UP WALLET BALANCE */}
+                        {activeTab === 'add_money' && (
+                            <div className="max-w-xl mx-auto glass-panel p-8 rounded-3xl space-y-6">
+                                <div className="text-center space-y-2">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center">
+                                        <Icon name="plus" className="w-6 h-6" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white">Top Up PaySphere Wallet Balance</h3>
+                                    <p className="text-xs text-slate-400">Add funds instantly to your wallet. Synced to Cloud Firestore.</p>
+                                </div>
+
+                                {topUpNotice && (
+                                    <div className={`p-3.5 rounded-xl text-xs font-semibold border ${topUpNotice.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-300' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'}`}>
+                                        {topUpNotice.text}
+                                    </div>
+                                )}
+
+                                <form onSubmit={handleAddMoney} className="space-y-4 text-xs">
+                                    <div>
+                                        <label className="block font-semibold text-slate-300 mb-1">Select / Enter Amount (₹ INR)</label>
+                                        <input 
+                                            type="number" 
+                                            step="100" 
+                                            value={topUpAmount} 
+                                            onChange={e => setTopUpAmount(e.target.value)} 
+                                            placeholder="e.g. 50000" 
+                                            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-white text-base font-bold focus:outline-none focus:border-emerald-500" 
+                                            required 
+                                        />
+                                    </div>
+
+                                    {/* Quick Amount Buttons */}
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[5000, 10000, 50000, 100000].map(amt => (
+                                            <button type="button" key={amt} onClick={() => setTopUpAmount(amt.toString())} className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold py-2 rounded-xl text-xs transition-all">
+                                                +₹{amt.toLocaleString('en-IN')}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div>
+                                        <label className="block font-semibold text-slate-300 mb-1">Deposit Source</label>
+                                        <select value={topUpSource} onChange={e => setTopUpSource(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-emerald-500">
+                                            <option>UPI / Instant NetBanking</option>
+                                            <option>Debit / Credit Card</option>
+                                            <option>Direct Bank Wire</option>
+                                        </select>
+                                    </div>
+
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center space-x-2 transition-all">
+                                        <Icon name="plus" className="w-4 h-4" />
+                                        <span>Deposit Funds to Wallet</span>
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* TAB 3: PAYSPHERE SHIELD SECURITY */}
                         {activeTab === 'security' && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="glass-panel p-6 rounded-2xl space-y-6">
                                     <h3 className="text-base font-bold text-white flex items-center space-x-2">
                                         <Icon name="shield" className="w-5 h-5 text-purple-400" />
-                                        <span>PaySphere Fraud Guard Status</span>
+                                        <span>AI Fraud Detection & Risk Rules</span>
                                     </h3>
 
                                     <div className="space-y-4 text-xs">
-                                        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
-                                            <div>
-                                                <div className="font-bold text-white text-sm">Two-Factor Authentication (2FA)</div>
-                                                <div className="text-slate-400 mt-0.5">Enforced for high-value transfers (≥ ₹50,000)</div>
-                                            </div>
-                                            <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-1 rounded-full">ACTIVE</span>
+                                        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                                            <div className="font-bold text-white text-sm mb-1">⚡ Velocity Risk Rule</div>
+                                            <div className="text-slate-400">If a user makes 5+ rapid transfers in 1 hour, AI flags the account for potential bot/compromise activity.</div>
                                         </div>
 
-                                        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
-                                            <div>
-                                                <div className="font-bold text-white text-sm">Blacklisted Account Filtering</div>
-                                                <div className="text-slate-400 mt-0.5">Automatically blocks flagged scam accounts</div>
-                                            </div>
-                                            <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-1 rounded-full">ACTIVE</span>
+                                        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                                            <div className="font-bold text-white text-sm mb-1">📍 Geolocation Anomaly Rule</div>
+                                            <div className="text-slate-400">Transfers exceeding 500+ km from your home location trigger high risk security alerts.</div>
                                         </div>
 
-                                        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
-                                            <div>
-                                                <div className="font-bold text-white text-sm">App Check Token Verification</div>
-                                                <div className="text-slate-400 mt-0.5">Protects payment endpoints from automated bot attacks</div>
-                                            </div>
-                                            <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-1 rounded-full">VERIFIED</span>
+                                        <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+                                            <div className="font-bold text-white text-sm mb-1">🔒 Two-Factor Authentication (2FA)</div>
+                                            <div className="text-slate-400">All high-value payments (≥ ₹50,000) require mandatory 6-digit OTP verification.</div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="glass-panel p-6 rounded-2xl space-y-4">
-                                    <h3 className="text-base font-bold text-white">Security Log Feed</h3>
+                                    <h3 className="text-base font-bold text-white">Live Threat Log Feed</h3>
                                     <div className="space-y-3 text-xs">
-                                        {transactions.slice(0, 4).map(t => (
-                                            <div key={t.id} className="p-3 bg-slate-900/70 rounded-xl border border-slate-800 flex items-center justify-between">
+                                        {transactions.map(t => (
+                                            <div key={t.id} className="p-3.5 bg-slate-900/70 rounded-xl border border-slate-800 flex items-center justify-between">
                                                 <div>
                                                     <div className="font-bold text-slate-200">{t.recipient}</div>
-                                                    <div className="text-[10px] text-slate-400">{t.date}</div>
+                                                    <div className="text-[10px] text-slate-400">{t.date} • ₹{t.amount.toLocaleString('en-IN')}</div>
                                                 </div>
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${t.status === 'Flagged' ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${t.status === 'Flagged' || (t.riskScore && t.riskScore >= 75) ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-300'}`}>
                                                     {t.securityStatus || 'Verified'}
                                                 </span>
                                             </div>
@@ -870,7 +991,7 @@
                             </div>
                         )}
 
-                        {/* TAB 3: SMART FINANCIAL INSIGHTS */}
+                        {/* TAB 4: SMART FINANCIAL INSIGHTS */}
                         {activeTab === 'insights' && (
                             <div className="max-w-3xl mx-auto glass-panel rounded-2xl overflow-hidden flex flex-col h-[550px]">
                                 <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
@@ -905,7 +1026,7 @@
                             </div>
                         )}
 
-                        {/* TAB 4: ANALYTICS & BREAKDOWN */}
+                        {/* TAB 5: ANALYTICS & BREAKDOWN */}
                         {activeTab === 'analytics' && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="glass-panel p-6 rounded-2xl">
@@ -943,7 +1064,7 @@
                                     </div>
                                     <h3 className="text-lg font-bold text-white">Two-Factor Authentication (2FA)</h3>
                                     <p className="text-xs text-slate-400">
-                                        High-value transfer of <span className="font-bold text-emerald-400">₹{pendingTransaction.amount.toLocaleString('en-IN')}</span> requires 2FA verification.
+                                        Transaction of <span className="font-bold text-emerald-400">₹{pendingTransaction.amount.toLocaleString('en-IN')}</span> requires 2FA OTP verification.
                                     </p>
                                 </div>
 
@@ -997,7 +1118,7 @@
                                     <div className="flex justify-between"><span className="text-slate-400">Recipient:</span><span className="font-bold">{selectedTxn.recipient}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Category:</span><span>{selectedTxn.category}</span></div>
                                     <div className="flex justify-between"><span className="text-slate-400">Amount Paid:</span><span className="font-bold text-emerald-400">₹{selectedTxn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                                    <div className="flex justify-between"><span className="text-slate-400">Security Verification:</span><span className="font-bold text-emerald-400">{selectedTxn.securityStatus || 'Verified'}</span></div>
+                                    <div className="flex justify-between"><span className="text-slate-400">Security Status:</span><span className="font-bold text-emerald-400">{selectedTxn.securityStatus || 'Verified'}</span></div>
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-800 flex space-x-3">
