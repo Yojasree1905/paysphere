@@ -131,13 +131,13 @@
                 } catch(e) { return null; }
             });
 
-            const [activeTab, setActiveTab] = useState('payments'); // 'payments', 'add_money', 'fraud_simulator', 'security', 'insights', 'analytics'
+            const [activeTab, setActiveTab] = useState('payments');
             const [balance, setBalance] = useState(DEFAULT_BALANCE);
             const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
             const [selectedTxn, setSelectedTxn] = useState(null);
 
             // Auth Portal States
-            const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+            const [authMode, setAuthMode] = useState('login');
             const [loginInput, setLoginInput] = useState('');
             const [loginPassword, setLoginPassword] = useState('');
             const [authMsg, setAuthMsg] = useState('');
@@ -150,12 +150,12 @@
             const [transferType, setTransferType] = useState('UPI');
             const [paymentNotice, setPaymentNotice] = useState(null);
 
-            // Add Money / Top Up Balance State
+            // Add Money State
             const [topUpAmount, setTopUpAmount] = useState('');
             const [topUpSource, setTopUpSource] = useState('UPI / Bank Transfer');
             const [topUpNotice, setTopUpNotice] = useState(null);
 
-            // DEDICATED AI FRAUD RANGE SLIDERS TAB STATE
+            // AI Fraud Risk Range Sliders State
             const [simAmount, setSimAmount] = useState('85000');
             const [simVelocity, setSimVelocity] = useState('3');
             const [simDistance, setSimDistance] = useState('120');
@@ -167,13 +167,12 @@
             const [otpValues, setOtpValues] = useState(['', '', '', '', '', '']);
             const [otpError, setOtpError] = useState('');
 
-            // AI Insights Chat State
+            // AI Chat State
             const [chatMessages, setChatMessages] = useState([
-                { sender: 'assistant', text: 'Hello! I am your PaySphere Personal Financial Advisor powered by Cloud Firestore. How can I assist your wallet management today?' }
+                { sender: 'assistant', text: 'Hello! I am your PaySphere Personal Financial Advisor. How can I assist your wallet management today?' }
             ]);
             const [chatInput, setChatInput] = useState('');
 
-            // Calculate Interactive AI Fraud Risk Range Slider Score
             const calculateSimulatedRisk = (amtVal, velVal, distVal) => {
                 const amt = parseFloat(amtVal !== undefined ? amtVal : simAmount) || 0;
                 const vel = parseInt(velVal !== undefined ? velVal : simVelocity) || 1;
@@ -187,23 +186,31 @@
                 setSimRiskScore(totalScore);
             };
 
-            // DIRECT CLOUD FIRESTORE USER DOCUMENT WRITER
-            const syncUserToFirestore = (uId, emailStr, pwd = "") => {
+            // DIRECT FIRESTORE COLLECTIONS & DOCUMENTS CREATOR
+            const syncUserToFirestore = (uId, emailStr, initialTxns = INITIAL_TRANSACTIONS) => {
                 if (typeof db !== 'undefined' && db !== null) {
                     const cleanDocId = String(uId || emailStr).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
+                    
+                    // 1. Write `users/{cleanDocId}` document
                     db.collection("users").doc(cleanDocId).set({
                         uid: uId,
                         email: emailStr,
                         balance: balance || DEFAULT_BALANCE,
                         created_at: new Date().toISOString(),
-                        last_login: new Date().toISOString()
+                        last_active: new Date().toISOString()
                     }, { merge: true }).then(() => {
-                        console.log("[Firestore] User document created in 'users' collection:", cleanDocId);
-                    }).catch(err => console.error("[Firestore User Creation Error]", err));
+                        console.log("[Firestore] Created user document in 'users' collection:", cleanDocId);
+                    }).catch(err => console.error("[Firestore Error]", err));
+
+                    // 2. Populate `users/{cleanDocId}/transactions` subcollection & global `transactions` collection
+                    initialTxns.forEach(t => {
+                        const tObj = { ...t, user_email: emailStr, user_uid: uId };
+                        db.collection("users").doc(cleanDocId).collection("transactions").doc(t.id).set(tObj, { merge: true }).catch(() => {});
+                        db.collection("transactions").doc(t.id).set(tObj, { merge: true }).catch(() => {});
+                    });
                 }
             };
 
-            // Save updated balance to Firestore & Realtime Database
             const updateBalanceInDatabase = (currentUser, newBal) => {
                 setBalance(newBal);
                 if (!currentUser) return;
@@ -233,7 +240,8 @@
                 const cleanDocId = userId.replace(/[^a-zA-Z0-9_@.-]/g, '_');
                 const userKey = `paysphere_txns_${userId}`;
 
-                syncUserToFirestore(user.uid, user.email);
+                // Instantly trigger Firestore collections creation
+                syncUserToFirestore(user.uid, user.email, transactions);
 
                 try {
                     const savedBal = localStorage.getItem(`paysphere_balance_${userId}`);
@@ -276,7 +284,7 @@
                             const uObj = { email: currentUser.email || currentUser.phoneNumber, uid: currentUser.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                            syncUserToFirestore(currentUser.uid, uObj.email);
+                            syncUserToFirestore(currentUser.uid, uObj.email, transactions);
                         }
                     });
                     return () => unsubscribe();
@@ -309,7 +317,7 @@
                             const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                            syncUserToFirestore(res.user.uid, res.user.email, pwd);
+                            syncUserToFirestore(res.user.uid, res.user.email, transactions);
                             setIsAuthProcessing(false);
                             return;
                         } catch (fbErr) {
@@ -328,7 +336,7 @@
                             const uObj = { email: res.user.email, uid: res.user.uid, provider: "Firebase Auth" };
                             setUser(uObj);
                             localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                            syncUserToFirestore(res.user.uid, res.user.email, pwd);
+                            syncUserToFirestore(res.user.uid, res.user.email, transactions);
                             setIsAuthProcessing(false);
                             return;
                         } catch (fbErr) {
@@ -350,7 +358,7 @@
                 const uObj = { email: rawId, uid: uid };
                 setUser(uObj);
                 localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                syncUserToFirestore(uid, rawId, pwd);
+                syncUserToFirestore(uid, rawId, transactions);
                 setIsAuthProcessing(false);
             };
 
@@ -366,7 +374,7 @@
                         const uObj = { email: res.user.email, uid: res.user.uid, provider: "Google Account" };
                         setUser(uObj);
                         localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                        syncUserToFirestore(res.user.uid, res.user.email);
+                        syncUserToFirestore(res.user.uid, res.user.email, transactions);
                         setIsAuthProcessing(false);
                         return;
                     } catch (err) {
@@ -381,7 +389,7 @@
                     const uObj = { email: gEmail, uid: uid };
                     setUser(uObj);
                     localStorage.setItem("paysphere_user", JSON.stringify(uObj));
-                    syncUserToFirestore(uid, gEmail);
+                    syncUserToFirestore(uid, gEmail, transactions);
                 }
                 setIsAuthProcessing(false);
             };
@@ -425,9 +433,13 @@
                 const updatedTxns = [topUpTxn, ...transactions];
                 setTransactions(updatedTxns);
 
+                // RECORD TRANSACTION DIRECTLY IN CLOUD FIRESTORE COLLECTIONS!
                 if (typeof db !== 'undefined' && db !== null) {
                     const cleanDocId = String(user.uid || user.email).toLowerCase().replace(/[^a-zA-Z0-9_@.-]/g, '_');
-                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnId).set(topUpTxn).catch(() => {});
+                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnId).set(topUpTxn).then(() => {
+                        console.log("[Firestore] Top-Up recorded in user's transactions subcollection:", txnId);
+                    }).catch(() => {});
+
                     db.collection("transactions").doc(txnId).set(topUpTxn).catch(() => {});
                 }
 
@@ -448,7 +460,6 @@
                     return;
                 }
 
-                // Block Blacklisted / Suspicious Route
                 if (transferType === 'Blacklisted/Suspicious' || recipient.toLowerCase().includes('blacklisted') || recipient.toLowerCase().includes('scam')) {
                     setPaymentNotice({ 
                         type: 'error', 
@@ -498,8 +509,12 @@
 
                 try { localStorage.setItem(`paysphere_txns_${userId}`, JSON.stringify(updatedTxns)); } catch(e) {}
 
+                // RECORD TRANSACTION DIRECTLY IN CLOUD FIRESTORE COLLECTIONS!
                 if (typeof db !== 'undefined' && db !== null) {
-                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
+                    db.collection("users").doc(cleanDocId).collection("transactions").doc(txnData.id).set(txnData).then(() => {
+                        console.log("[Firestore] Transaction recorded in user's transactions subcollection:", txnData.id);
+                    }).catch(() => {});
+
                     db.collection("transactions").doc(txnData.id).set(txnData).catch(() => {});
                 }
 
@@ -796,7 +811,6 @@
                                     <div className="flex items-center justify-between mb-6">
                                         <div>
                                             <h3 className="text-base font-bold text-white">Recent Transactions</h3>
-                                            <p className="text-xs text-slate-400">Live synchronized ledger for {user.email}</p>
                                         </div>
                                     </div>
 
